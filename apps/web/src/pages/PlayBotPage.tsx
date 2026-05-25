@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { BotDifficulty } from '@co-ganh/bot';
 import type { Color } from '@co-ganh/engine';
 import { isGameOver, getWinner } from '@co-ganh/engine';
@@ -16,6 +16,7 @@ import { useT } from '../i18n/index.js';
 
 export function PlayBotPage() {
   const t = useT();
+  const navigate = useNavigate();
   const [difficulty, setDifficulty] = useState<BotDifficulty>(
     useSettingsStore.getState().botDifficulty,
   );
@@ -31,6 +32,8 @@ export function PlayBotPage() {
     audio.arm();
   };
 
+  const onCloseSetup = () => navigate('/');
+
   const diffLabel = (d: BotDifficulty) =>
     d === 'easy'
       ? t('difficulty.easy')
@@ -44,7 +47,7 @@ export function PlayBotPage() {
         <Link to="/" className="self-start text-sm underline">
           {t('common.back')}
         </Link>
-        <Modal open={true} onClose={() => undefined} title={t('bot.title')}>
+        <Modal open={true} onClose={onCloseSetup} title={t('bot.title')}>
           <div className="space-y-4">
             <div>
               <p className="text-sm mb-2">{t('settings.botDifficulty')}</p>
