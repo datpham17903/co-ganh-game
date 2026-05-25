@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { isGameOver, getWinner, type GameState } from '@co-ganh/engine';
 import { Board } from '../features/board/Board.js';
@@ -10,6 +10,7 @@ import { emit, getSocket, SocketEvents } from '../lib/socket.js';
 import { Modal } from '../components/Modal.js';
 import { RoomLobby } from '../features/room/RoomLobby.js';
 import { usePvPGame } from '../features/room/usePvPGame.js';
+import { useT } from '../i18n/index.js';
 
 export function PlayPvPPage() {
   const { roomId } = useParams();
@@ -17,10 +18,21 @@ export function PlayPvPPage() {
   return <PvPGameRoom roomId={roomId} />;
 }
 
+interface ReconnectResponse {
+  ok: boolean;
+  color?: 'B' | 'W';
+  state?: GameState;
+  opponent?: { name: string } | null;
+  roomStatus?: 'waiting' | 'playing' | 'finished';
+  error?: string;
+}
+
 function PvPGameRoom({ roomId }: { roomId: string }) {
+  const t = useT();
   const navigate = useNavigate();
   const setSession = useSocketStore((s) => s.setSession);
-  const session = useSocketStore((s) => ({ roomId: s.roomId, token: s.playerToken }));
+  const sessionRoomId = useSocketStore((s) => s.roomId);
+  const sessionToken = useSocketStore((s) => s.playerToken);
   const pushToast = useToastStore((s) => s.push);
   const reset = useGameStore((s) => s.resetGame);
   const setStateExternal = useGameStore((s) => s.setState);
@@ -34,43 +46,23 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
     useBoardInteraction();
   const { sendMove, resign } = usePvPGame();
 
+  // Giữ ref tới t để listener không stale closure khi đổi ngôn ngữ.
+  const tRef = useRef(t);
+  tRef.current = t;
+
   useEffect(() => {
     const s = getSocket();
     if (!s.connected) s.connect();
 
-    // Reconnect nếu có session lưu cho cùng phòng
-    const tryReconnect = async () => {
-      if (session.roomId === roomId && session.token) {
-        try {
-          const resp = await emit<{
-            ok: boolean;
-            color?: 'B' | 'W';
-            state?: GameState;
-            error?: string;
-          }>(s, SocketEvents.ROOM_RECONNECT, { roomId, playerToken: session.token });
-          if (resp.ok && resp.color && resp.state) {
-            reset({ mode: 'pvp', myColor: resp.color });
-            setStateExternal(resp.state);
-            return;
-          }
-          pushToast('warning', 'Không vào được phòng — quay về sảnh');
-          navigate('/play/pvp');
-        } catch {
-          navigate('/play/pvp');
-        }
-      } else {
-        // Không có session → quay về sảnh
-        navigate('/play/pvp');
-      }
-    };
-    void tryReconnect();
-
+    // BUG FIX: gắn listener TRƯỚC reconnect/join. Trước đây listener gắn sau emit
+    // nên player thứ 2 có thể bỏ lỡ event game:start mà server emit ngay sau ack.
     const onStart = (data: {
       state: GameState;
       players: { B: { name: string } | null; W: { name: string } | null };
     }) => {
       setStateExternal(data.state);
-      const opp = useGameStore.getState().myColor === 'B' ? data.players.W : data.players.B;
+      const meColor = useGameStore.getState().myColor;
+      const opp = meColor === 'B' ? data.players.W : data.players.B;
       if (opp) setOpponentName(opp.name);
       setOppDisconnected(false);
     };
@@ -81,18 +73,18 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
     const onSync = (data: { state: GameState }) => setStateExternal(data.state);
     const onOppJoined = (d: { name: string }) => {
       setOpponentName(d.name);
-      pushToast('info', `${d.name} đã vào phòng`);
+      pushToast('info', tRef.current('pvp.oppJoinedToast', { name: d.name }));
     };
     const onOppLeft = () => {
       setOppDisconnected(true);
-      pushToast('warning', 'Đối thủ mất kết nối...');
+      pushToast('warning', tRef.current('pvp.oppLeftToast'));
     };
     const onOppRecon = () => {
       setOppDisconnected(false);
-      pushToast('success', 'Đối thủ đã kết nối lại');
+      pushToast('success', tRef.current('pvp.oppRecToast'));
     };
     const onReject = (d: { reason: string }) => {
-      pushToast('error', `Nước đi không hợp lệ: ${d.reason}`);
+      pushToast('error', tRef.current('pvp.invalidMoveToast', { reason: d.reason }));
       setInputLocked(false);
     };
     const onOver = () => setInputLocked(false);
@@ -106,7 +98,34 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
     s.on(SocketEvents.GAME_MOVE_REJECTED, onReject);
     s.on(SocketEvents.GAME_OVER, onOver);
 
+    let cancelled = false;
+    const tryReconnect = async () => {
+      if (sessionRoomId === roomId && sessionToken) {
+        try {
+          const resp = await emit<ReconnectResponse>(s, SocketEvents.ROOM_RECONNECT, {
+            roomId,
+            playerToken: sessionToken,
+          });
+          if (cancelled) return;
+          if (resp.ok && resp.color && resp.state) {
+            reset({ mode: 'pvp', myColor: resp.color });
+            setStateExternal(resp.state);
+            if (resp.opponent) setOpponentName(resp.opponent.name);
+            return;
+          }
+          pushToast('warning', tRef.current('pvp.errJoin'));
+          navigate('/play/pvp');
+        } catch {
+          if (!cancelled) navigate('/play/pvp');
+        }
+      } else {
+        navigate('/play/pvp');
+      }
+    };
+    void tryReconnect();
+
     return () => {
+      cancelled = true;
       s.off(SocketEvents.GAME_START, onStart);
       s.off(SocketEvents.GAME_MOVE_APPLIED, onMove);
       s.off(SocketEvents.GAME_SYNC_STATE, onSync);
@@ -121,8 +140,8 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
     navigate,
     pushToast,
     reset,
-    session.roomId,
-    session.token,
+    sessionRoomId,
+    sessionToken,
     setInputLocked,
     setStateExternal,
   ]);
@@ -132,18 +151,15 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
   const over = isGameOver(state);
   const winner = getWinner(state);
 
-  // Bắt sự kiện khi user click ô đích → chuyển sang sendMove qua socket
   const onCellClickPvP = (idx: number): void => {
     if (selectedFrom !== null && legalDestinations.includes(idx)) {
       const from = selectedFrom;
       const move = { from, to: idx };
-      // Optimistic: lock input, đợi server confirm
       setInputLocked(true);
       void sendMove(move).catch((e) => {
-        pushToast('error', e instanceof Error ? e.message : 'Gửi nước đi thất bại');
+        pushToast('error', e instanceof Error ? e.message : t('pvp.sendFail'));
         setInputLocked(false);
       });
-      // Clear selection visual
       useGameStore.setState({ selectedFrom: null, legalDestinations: [] });
       return;
     }
@@ -159,14 +175,14 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
 
   const copyCode = () => {
     void navigator.clipboard?.writeText(roomId);
-    pushToast('success', 'Đã sao chép mã phòng');
+    pushToast('success', t('pvp.codeCopied'));
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-3">
       <div className="w-full max-w-2xl flex items-center justify-between">
         <Link to="/" className="text-sm underline">
-          ← Menu
+          {t('common.back')}
         </Link>
         <button
           type="button"
@@ -174,7 +190,7 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
           className="font-num text-lg"
           data-testid="room-code-display"
         >
-          Mã: {roomId}
+          {t('pvp.codePrefix')}: {roomId}
         </button>
         <button
           type="button"
@@ -184,13 +200,13 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
           }}
           className="text-sm underline"
         >
-          Đầu hàng
+          {t('common.resign')}
         </button>
       </div>
 
       {oppDisconnected && (
         <div className="w-full max-w-2xl mt-3 px-3 py-2 rounded bg-yellow-100 text-text-primary text-sm">
-          Đối thủ mất kết nối, đợi reconnect...
+          {t('pvp.oppDisconnected')}
         </div>
       )}
 
@@ -200,14 +216,16 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
           count={blackPieces}
           active={state.turn === 'B' && !over}
           isMe={myColor === 'B'}
-          name={myColor === 'B' ? 'Bạn' : (opponentName ?? 'Đối thủ')}
+          name={myColor === 'B' ? t('common.you') : (opponentName ?? t('common.opponent'))}
+          t={t}
         />
         <PlayerBadge
           color="W"
           count={whitePieces}
           active={state.turn === 'W' && !over}
           isMe={myColor === 'W'}
-          name={myColor === 'W' ? 'Bạn' : (opponentName ?? 'Đối thủ')}
+          name={myColor === 'W' ? t('common.you') : (opponentName ?? t('common.opponent'))}
+          t={t}
         />
       </div>
 
@@ -221,32 +239,40 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
 
       <p className="mt-3 text-sm text-text-muted">
         {!opponentName
-          ? 'Chờ đối thủ vào phòng...'
+          ? t('pvp.waitingOpp')
           : over
             ? winner === 'draw'
-              ? 'Hòa'
+              ? t('result.draw')
               : winner === myColor
-                ? 'Bạn thắng'
-                : 'Đối thủ thắng'
+                ? t('result.youWin')
+                : t('result.oppWin')
             : state.turn === myColor
-              ? 'Lượt bạn'
-              : 'Đối thủ đang đi...'}
+              ? t('turn.you')
+              : t('turn.opponent')}
       </p>
 
       <Modal
         open={over}
         onClose={leaveRoom}
-        title={winner === 'draw' ? 'Hòa cờ' : winner === myColor ? 'Bạn thắng' : 'Đối thủ thắng'}
+        title={
+          winner === 'draw'
+            ? t('result.draw')
+            : winner === myColor
+              ? t('result.youWin')
+              : t('result.oppWin')
+        }
       >
         <div className="space-y-3">
-          <p className="text-sm">Số nước đi: {state.moveHistory.length}</p>
+          <p className="text-sm">
+            {t('common.movesCount')}: {state.moveHistory.length}
+          </p>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={leaveRoom}
               className="flex-1 px-4 py-2 rounded bg-accent text-white"
             >
-              Rời phòng
+              {t('common.leaveRoom')}
             </button>
           </div>
         </div>
@@ -261,20 +287,24 @@ function PlayerBadge({
   active,
   isMe,
   name,
+  t,
 }: {
   color: 'B' | 'W';
   count: number;
   active: boolean;
   isMe: boolean;
   name: string;
+  t: ReturnType<typeof useT>;
 }) {
   return (
     <div
       className={`px-3 py-2 rounded-md border ${active ? 'border-accent bg-surface' : 'border-text-muted'}`}
       data-testid={`badge-${color}`}
     >
-      <span className="text-sm">{isMe ? 'Bạn' : name}</span>
-      <span className="ml-2 text-xs text-text-muted">({color === 'B' ? 'Đen' : 'Trắng'})</span>
+      <span className="text-sm">{isMe ? t('common.you') : name}</span>
+      <span className="ml-2 text-xs text-text-muted">
+        ({color === 'B' ? t('common.black') : t('common.white')})
+      </span>
       <span className="ml-2 font-num">{count}</span>
     </div>
   );

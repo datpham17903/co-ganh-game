@@ -15,7 +15,9 @@ describe('HomePage', () => {
         <HomePage />
       </MemoryRouter>,
     );
-    expect(screen.getByText('CỜ GÁNH')).toBeInTheDocument();
+    // Title hiển thị "Cờ Gánh" với CSS uppercase. Test cả 2 lần xuất hiện
+    // (header + hero).
+    expect(screen.getAllByText(/Cờ Gánh/i).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/CHƠI VỚI BOT/)).toBeInTheDocument();
     expect(screen.getByText(/CHƠI ONLINE/)).toBeInTheDocument();
     expect(screen.getByText(/CHƠI 2 NGƯỜI/)).toBeInTheDocument();

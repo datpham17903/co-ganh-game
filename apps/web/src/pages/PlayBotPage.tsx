@@ -12,8 +12,10 @@ import { useBotMove } from '../features/bot/useBotMove.js';
 import { MoveHistory } from '../features/game/MoveHistory.js';
 import { useGameSound } from '../features/game/useGameSound.js';
 import { audio } from '../lib/audio.js';
+import { useT } from '../i18n/index.js';
 
 export function PlayBotPage() {
+  const t = useT();
   const [pickerOpen, setPickerOpen] = useState(true);
   const [difficulty, setDifficulty] = useState<BotDifficulty>(
     useSettingsStore.getState().botDifficulty,
@@ -31,16 +33,23 @@ export function PlayBotPage() {
     audio.arm();
   };
 
+  const diffLabel = (d: BotDifficulty) =>
+    d === 'easy'
+      ? t('difficulty.easy')
+      : d === 'medium'
+        ? t('difficulty.medium')
+        : t('difficulty.hard');
+
   if (!started) {
     return (
       <div className="min-h-screen flex flex-col items-center px-4 py-3 gap-4">
         <Link to="/" className="self-start text-sm underline">
-          ← Menu
+          {t('common.back')}
         </Link>
-        <Modal open={pickerOpen} onClose={() => undefined} title="Chơi với BOT">
+        <Modal open={pickerOpen} onClose={() => undefined} title={t('bot.title')}>
           <div className="space-y-4">
             <div>
-              <p className="text-sm mb-2">Độ khó</p>
+              <p className="text-sm mb-2">{t('settings.botDifficulty')}</p>
               <div className="flex gap-2">
                 {(['easy', 'medium', 'hard'] as const).map((d) => (
                   <button
@@ -52,13 +61,13 @@ export function PlayBotPage() {
                     }`}
                     data-testid={`diff-${d}`}
                   >
-                    {d === 'easy' ? 'Dễ' : d === 'medium' ? 'TBình' : 'Khó'}
+                    {diffLabel(d)}
                   </button>
                 ))}
               </div>
             </div>
             <div>
-              <p className="text-sm mb-2">Màu quân</p>
+              <p className="text-sm mb-2">{t('bot.color')}</p>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -68,7 +77,7 @@ export function PlayBotPage() {
                   }`}
                   data-testid="color-B"
                 >
-                  Đen (đi trước)
+                  {t('bot.colorBlack')}
                 </button>
                 <button
                   type="button"
@@ -78,7 +87,7 @@ export function PlayBotPage() {
                   }`}
                   data-testid="color-W"
                 >
-                  Trắng
+                  {t('bot.colorWhite')}
                 </button>
               </div>
             </div>
@@ -88,7 +97,7 @@ export function PlayBotPage() {
               className="w-full px-4 py-2 rounded bg-accent text-white"
               data-testid="start-game"
             >
-              Bắt đầu
+              {t('common.start')}
             </button>
           </div>
         </Modal>
@@ -106,6 +115,7 @@ function ActiveBotGame({
   difficulty: BotDifficulty;
   onChangeSetup: () => void;
 }) {
+  const t = useT();
   const reset = useGameStore((s) => s.resetGame);
   const myColor = useGameStore((s) => s.myColor);
   const { state, selectedFrom, legalDestinations, handlePieceClick, handleCellClick } =
@@ -124,22 +134,28 @@ function ActiveBotGame({
   });
   useGameSound();
 
-  // Khi user đổi màu trắng, bot (đen) đi trước — useBotMove handle.
   useEffect(() => {
     /* trigger via deps */
   }, [myColor]);
+
+  const diffLabel =
+    difficulty === 'easy'
+      ? t('difficulty.easy')
+      : difficulty === 'medium'
+        ? t('difficulty.medium')
+        : t('difficulty.hard');
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-3">
       <div className="w-full max-w-2xl flex items-center justify-between">
         <Link to="/" className="text-sm underline">
-          ← Menu
+          {t('common.back')}
         </Link>
         <h1 className="font-display text-xl">
-          Chơi với BOT ({difficulty === 'easy' ? 'Dễ' : difficulty === 'medium' ? 'TBình' : 'Khó'})
+          {t('bot.title')} ({diffLabel})
         </h1>
         <button type="button" onClick={onChangeSetup} className="text-sm underline">
-          Đổi
+          {t('common.changeSetup')}
         </button>
       </div>
 
@@ -150,6 +166,7 @@ function ActiveBotGame({
           active={state.turn === 'B' && !over}
           isMe={myColor === 'B'}
           thinking={state.turn === 'B' && myColor !== 'B' && inputLocked}
+          t={t}
         />
         <PlayerBadge
           color="W"
@@ -157,6 +174,7 @@ function ActiveBotGame({
           active={state.turn === 'W' && !over}
           isMe={myColor === 'W'}
           thinking={state.turn === 'W' && myColor !== 'W' && inputLocked}
+          t={t}
         />
       </div>
 
@@ -171,17 +189,17 @@ function ActiveBotGame({
       <p className="mt-3 text-sm text-text-muted" data-testid="turn-indicator">
         {over
           ? winner === 'draw'
-            ? 'Hòa'
+            ? t('result.draw')
             : winner === myColor
-              ? 'Bạn thắng'
-              : 'Bot thắng'
+              ? t('result.youWin')
+              : t('result.youLose')
           : state.turn === myColor
-            ? 'Lượt bạn'
-            : 'Bot đang nghĩ...'}
+            ? t('turn.you')
+            : t('turn.bot')}
       </p>
 
       <details className="w-full max-w-2xl mt-4 px-3">
-        <summary className="text-sm cursor-pointer">Lịch sử nước đi</summary>
+        <summary className="text-sm cursor-pointer">{t('common.history')}</summary>
         <div className="mt-2">
           <MoveHistory />
         </div>
@@ -190,25 +208,33 @@ function ActiveBotGame({
       <Modal
         open={over}
         onClose={() => reset({ mode: 'bot', myColor })}
-        title={winner === 'draw' ? 'Hòa cờ' : winner === myColor ? 'Bạn thắng' : 'Bot thắng'}
+        title={
+          winner === 'draw'
+            ? t('result.draw')
+            : winner === myColor
+              ? t('result.youWin')
+              : t('result.youLose')
+        }
       >
         <div className="space-y-3">
-          <p className="text-sm">Số nước đi: {state.moveHistory.length}</p>
-          {state.drawReason && <p className="text-sm">Lý do: {state.drawReason}</p>}
+          <p className="text-sm">
+            {t('common.movesCount')}: {state.moveHistory.length}
+          </p>
+          {state.drawReason && <p className="text-sm">{state.drawReason}</p>}
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => reset({ mode: 'bot', myColor })}
               className="flex-1 px-4 py-2 rounded bg-accent text-white"
             >
-              Đấu lại
+              {t('common.replay')}
             </button>
             <button
               type="button"
               onClick={onChangeSetup}
               className="flex-1 px-4 py-2 rounded border border-text-muted"
             >
-              Đổi độ khó
+              {t('common.changeDifficulty')}
             </button>
           </div>
         </div>
@@ -223,22 +249,26 @@ function PlayerBadge({
   active,
   isMe,
   thinking,
+  t,
 }: {
   color: 'B' | 'W';
   count: number;
   active: boolean;
   isMe: boolean;
   thinking: boolean;
+  t: ReturnType<typeof useT>;
 }) {
   return (
     <div
       className={`px-3 py-2 rounded-md border ${active ? 'border-accent bg-surface' : 'border-text-muted'}`}
       data-testid={`badge-${color}`}
     >
-      <span className="text-sm">{isMe ? 'Bạn' : 'Bot'}</span>
-      <span className="ml-2 text-xs text-text-muted">({color === 'B' ? 'Đen' : 'Trắng'})</span>
+      <span className="text-sm">{isMe ? t('common.you') : t('common.bot')}</span>
+      <span className="ml-2 text-xs text-text-muted">
+        ({color === 'B' ? t('common.black') : t('common.white')})
+      </span>
       <span className="ml-2 font-num">{count}</span>
-      {thinking && <span className="ml-2 text-accent animate-pulse">...</span>}
+      {thinking && <span className="ml-2 text-accent animate-pulse">{t('bot.thinking')}</span>}
     </div>
   );
 }

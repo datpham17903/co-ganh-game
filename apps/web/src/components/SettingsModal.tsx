@@ -1,6 +1,7 @@
 import type { BotDifficulty } from '@co-ganh/bot';
 import { Modal } from './Modal.js';
 import { useSettingsStore } from '../stores/settingsStore.js';
+import { useT } from '../i18n/index.js';
 
 interface SettingsModalProps {
   open: boolean;
@@ -8,6 +9,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
+  const t = useT();
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const toggleSound = useSettingsStore((s) => s.toggleSound);
   const theme = useSettingsStore((s) => s.theme);
@@ -18,34 +20,34 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const setBotDifficulty = useSettingsStore((s) => s.setBotDifficulty);
 
   return (
-    <Modal open={open} onClose={onClose} title="Cài đặt">
+    <Modal open={open} onClose={onClose} title={t('common.settings')}>
       <div className="space-y-5">
-        <Section label="Âm thanh">
+        <Section label={t('settings.sound')}>
           <Toggle
             on={soundEnabled}
-            onLabel="Bật"
-            offLabel="Tắt"
+            onLabel={t('settings.on')}
+            offLabel={t('settings.off')}
             onClick={toggleSound}
             testId="toggle-sound"
           />
         </Section>
 
-        <Section label="Giao diện">
+        <Section label={t('settings.theme')}>
           <div className="grid grid-cols-2 gap-2">
             <Tile
               selected={theme === 'light'}
               onClick={() => setTheme('light')}
               testId="theme-light"
             >
-              ☀ Sáng
+              {t('settings.themeLight')}
             </Tile>
             <Tile selected={theme === 'dark'} onClick={() => setTheme('dark')} testId="theme-dark">
-              🌙 Tối
+              {t('settings.themeDark')}
             </Tile>
           </div>
         </Section>
 
-        <Section label="Ngôn ngữ">
+        <Section label={t('settings.language')}>
           <div className="grid grid-cols-2 gap-2">
             <Tile selected={language === 'vi'} onClick={() => setLanguage('vi')} testId="lang-vi">
               🇻🇳 Tiếng Việt
@@ -56,7 +58,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           </div>
         </Section>
 
-        <Section label="Độ khó bot mặc định">
+        <Section label={t('settings.botDifficulty')}>
           <div className="flex gap-2">
             {(['easy', 'medium', 'hard'] as const).map((d) => (
               <Chip
@@ -65,7 +67,11 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 onClick={() => setBotDifficulty(d as BotDifficulty)}
                 testId={`bot-${d}`}
               >
-                {d === 'easy' ? 'Dễ' : d === 'medium' ? 'TBình' : 'Khó'}
+                {d === 'easy'
+                  ? t('difficulty.easy')
+                  : d === 'medium'
+                    ? t('difficulty.medium')
+                    : t('difficulty.hard')}
               </Chip>
             ))}
           </div>
@@ -76,7 +82,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           onClick={onClose}
           className="w-full px-4 py-2 rounded-lg bg-accent text-white font-display"
         >
-          Đóng
+          {t('common.close')}
         </button>
       </div>
     </Modal>

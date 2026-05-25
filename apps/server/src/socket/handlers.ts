@@ -81,10 +81,28 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
     socket.join(r.room.id);
     socket.data.roomId = r.room.id;
     socket.data.color = r.color;
-    cb?.({ ok: true, color: r.color, state: r.room.state });
+    const oppColor = r.color === 'B' ? 'W' : 'B';
+    const opp = r.room.players[oppColor];
+    cb?.({
+      ok: true,
+      color: r.color,
+      state: r.room.state,
+      // Trả opponent + room status để client biết có cần đợi không.
+      opponent: opp ? { name: opp.name } : null,
+      roomStatus: r.room.status,
+    });
+    // Sync state cho client vừa reconnect.
     socket.emit(Events.GAME_SYNC_STATE, { state: r.room.state });
-    const opp = r.room.players[r.color === 'B' ? 'W' : 'B'];
-    if (opp) {
+    // Nếu opponent đang trong phòng và game đã chạy → resend game:start cho client mới
+    // để họ có đủ player names + state. Server-only emit, không broadcast cả phòng.
+    if (opp && r.room.status === 'playing') {
+      socket.emit(Events.GAME_START, {
+        state: r.room.state,
+        players: {
+          B: r.room.players.B ? { name: r.room.players.B.name } : null,
+          W: r.room.players.W ? { name: r.room.players.W.name } : null,
+        },
+      });
       socket.to(r.room.id).emit(Events.ROOM_OPPONENT_RECONNECTED, {
         name: r.room.players[r.color]?.name ?? '',
       });
