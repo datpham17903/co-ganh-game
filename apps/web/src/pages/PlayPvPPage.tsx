@@ -10,6 +10,7 @@ import { emit, getSocket, SocketEvents } from '../lib/socket.js';
 import { Modal } from '../components/Modal.js';
 import { RoomLobby } from '../features/room/RoomLobby.js';
 import { usePvPGame } from '../features/room/usePvPGame.js';
+import { ChatPanel } from '../features/room/ChatPanel.js';
 import { useT } from '../i18n/index.js';
 
 export function PlayPvPPage() {
@@ -250,6 +251,8 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
               ? t('turn.you')
               : t('turn.opponent')}
       </p>
+
+      <ChatPanel myColor={myColor} />
 
       <Modal
         open={over}

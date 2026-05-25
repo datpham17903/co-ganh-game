@@ -3,13 +3,17 @@ import { Events } from './events.js';
 import type { RoomManager } from '../rooms/RoomManager.js';
 
 const NAME_PATTERN = /^[\p{L}\p{N}_\-\s]{1,20}$/u;
+const PASSWORD_MAX_LEN = 32;
 
 interface CreatePayload {
   playerName: string;
+  isPublic?: boolean;
+  password?: string;
 }
 interface JoinPayload {
   roomId: string;
   playerName: string;
+  password?: string;
 }
 interface ReconnectPayload {
   roomId: string;
@@ -18,6 +22,9 @@ interface ReconnectPayload {
 interface MovePayload {
   from: number;
   to: number;
+}
+interface ChatPayload {
+  text: string;
 }
 
 type Cb<T> = (resp: T) => void;
@@ -28,16 +35,35 @@ function sanitize(name: string): string | null {
   return trimmed;
 }
 
+function broadcastRoomList(io: Server, rooms: RoomManager): void {
+  io.emit(Events.ROOM_LIST_UPDATED, { rooms: rooms.listPublic() });
+}
+
 export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager): void {
   socket.on(Events.ROOM_CREATE, (payload: CreatePayload, cb?: Cb<unknown>) => {
     const name = sanitize(payload?.playerName);
     if (!name) return cb?.({ ok: false, error: 'INVALID_NAME' });
+    const password = payload?.password ?? '';
+    if (password.length > PASSWORD_MAX_LEN) {
+      return cb?.({ ok: false, error: 'PASSWORD_TOO_LONG' });
+    }
     try {
-      const { room, color, token } = rooms.create(socket.id, name);
+      const { room, color, token } = rooms.create(socket.id, name, {
+        isPublic: payload?.isPublic === true,
+        password: password || undefined,
+      });
       socket.join(room.id);
       socket.data.roomId = room.id;
       socket.data.color = color;
-      cb?.({ ok: true, roomId: room.id, color, playerToken: token });
+      cb?.({
+        ok: true,
+        roomId: room.id,
+        color,
+        playerToken: token,
+        isPublic: room.isPublic,
+        hasPassword: room.hasPassword(),
+      });
+      if (room.isPublic) broadcastRoomList(io, rooms);
     } catch (e) {
       cb?.({ ok: false, error: e instanceof Error ? e.message : 'ERROR' });
     }
@@ -46,7 +72,7 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
   socket.on(Events.ROOM_JOIN, (payload: JoinPayload, cb?: Cb<unknown>) => {
     const name = sanitize(payload?.playerName);
     if (!name) return cb?.({ ok: false, error: 'INVALID_NAME' });
-    const result = rooms.join(payload.roomId, socket.id, name);
+    const result = rooms.join(payload.roomId, socket.id, name, payload.password);
     if (!result.ok) return cb?.({ ok: false, error: result.error });
     socket.join(result.room.id);
     socket.data.roomId = result.room.id;
@@ -71,6 +97,10 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
         },
       });
     }
+    // Khi room đầy, không còn trong public list
+    if (result.room.isPublic) broadcastRoomList(io, rooms);
+    // Gửi chat history cho người vừa join (có thể empty)
+    socket.emit(Events.CHAT_HISTORY, { messages: result.room.chat });
   });
 
   socket.on(Events.ROOM_RECONNECT, (payload: ReconnectPayload, cb?: Cb<unknown>) => {
@@ -87,14 +117,11 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
       ok: true,
       color: r.color,
       state: r.room.state,
-      // Trả opponent + room status để client biết có cần đợi không.
       opponent: opp ? { name: opp.name } : null,
       roomStatus: r.room.status,
     });
-    // Sync state cho client vừa reconnect.
     socket.emit(Events.GAME_SYNC_STATE, { state: r.room.state });
-    // Nếu opponent đang trong phòng và game đã chạy → resend game:start cho client mới
-    // để họ có đủ player names + state. Server-only emit, không broadcast cả phòng.
+    socket.emit(Events.CHAT_HISTORY, { messages: r.room.chat });
     if (opp && r.room.status === 'playing') {
       socket.emit(Events.GAME_START, {
         state: r.room.state,
@@ -107,6 +134,10 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
         name: r.room.players[r.color]?.name ?? '',
       });
     }
+  });
+
+  socket.on(Events.ROOM_LIST, (_payload: unknown, cb?: Cb<unknown>) => {
+    cb?.({ ok: true, rooms: rooms.listPublic() });
   });
 
   socket.on(Events.ROOM_LEAVE, () => {
@@ -174,8 +205,31 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
     }
   });
 
+  /** Chat trong phòng. Validate text + rate limit ~1/giây/socket. */
+  let lastChatAt = 0;
+  socket.on(Events.CHAT_MESSAGE, (payload: ChatPayload, cb?: Cb<unknown>) => {
+    const now = Date.now();
+    if (now - lastChatAt < 800) {
+      return cb?.({ ok: false, error: 'RATE_LIMIT' });
+    }
+    const room = rooms.getBySocketId(socket.id);
+    if (!room) return cb?.({ ok: false, error: 'NO_ROOM' });
+    const color = room.colorOfSocket(socket.id);
+    if (!color) return cb?.({ ok: false, error: 'NO_ROOM' });
+    const player = room.players[color];
+    if (!player) return cb?.({ ok: false, error: 'NO_ROOM' });
+    const msg = room.pushChat(color, player.name, payload?.text ?? '');
+    if (!msg) return cb?.({ ok: false, error: 'INVALID_TEXT' });
+    lastChatAt = now;
+    cb?.({ ok: true, message: msg });
+    io.to(room.id).emit(Events.CHAT_NEW, { message: msg });
+  });
+
   socket.on('disconnect', () => {
+    const beforeRoom = rooms.getBySocketId(socket.id);
     handleDisconnect(io, socket, rooms, false);
+    // Nếu phòng public mà có thay đổi → broadcast lại list
+    if (beforeRoom?.isPublic) broadcastRoomList(io, rooms);
   });
 }
 

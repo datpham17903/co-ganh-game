@@ -1,4 +1,4 @@
-import { Room } from './Room.js';
+import { Room, type RoomOptions } from './Room.js';
 import { generatePlayerToken, generateRoomCode, isValidRoomCode } from '../utils/codes.js';
 
 export interface RoomManagerOptions {
@@ -8,6 +8,15 @@ export interface RoomManagerOptions {
   /** Reconnect deadline (default 60s). */
   reconnectTtlMs?: number;
   rand?: () => number;
+}
+
+/** Brief info trả qua room:list — không leak password hash. */
+export interface PublicRoomInfo {
+  id: string;
+  hostName: string;
+  hasPassword: boolean;
+  playerCount: number;
+  createdAt: number;
 }
 
 export class RoomManager {
@@ -25,10 +34,11 @@ export class RoomManager {
     this.rand = opts.rand ?? Math.random;
   }
 
-  /** Tạo phòng mới với 1 player. Trả {room, color, token}. */
+  /** Tạo phòng mới với 1 player. */
   create(
     socketId: string,
     name: string,
+    opts: RoomOptions = { isPublic: false },
   ): {
     room: Room;
     color: 'B';
@@ -44,7 +54,7 @@ export class RoomManager {
       }
     }
     if (!id) throw new Error('CANNOT_GENERATE_ROOM_CODE');
-    const room = new Room(id);
+    const room = new Room(id, opts);
     const token = generatePlayerToken(this.rand);
     room.addPlayer({ socketId, name, token });
     this.rooms.set(id, room);
@@ -52,25 +62,21 @@ export class RoomManager {
     return { room, color: 'B', token };
   }
 
-  /** Player join phòng có sẵn. */
   join(
     roomId: string,
     socketId: string,
     name: string,
+    password?: string,
   ):
     | { ok: true; room: Room; color: 'B' | 'W'; token: string }
-    | { ok: false; error: 'NOT_FOUND' | 'FULL' | 'INVALID_CODE' } {
+    | { ok: false; error: 'NOT_FOUND' | 'FULL' | 'INVALID_CODE' | 'WRONG_PASSWORD' } {
     if (!isValidRoomCode(roomId)) return { ok: false, error: 'INVALID_CODE' };
     const room = this.rooms.get(roomId);
     if (!room) return { ok: false, error: 'NOT_FOUND' };
     if (room.playerCount() >= 2) return { ok: false, error: 'FULL' };
+    if (!room.verifyPassword(password)) return { ok: false, error: 'WRONG_PASSWORD' };
     const token = generatePlayerToken(this.rand);
     const color = room.addPlayer({ socketId, name, token });
-    if (color === 'B') {
-      // Defensive: shouldn't happen because B should be filled first
-      this.socketToRoom.set(socketId, roomId);
-      return { ok: true, room, color, token };
-    }
     this.socketToRoom.set(socketId, roomId);
     return { ok: true, room, color, token };
   }
@@ -100,7 +106,6 @@ export class RoomManager {
     return this.rooms.get(roomId) ?? null;
   }
 
-  /** Mark socket disconnect. Trả room nếu có. */
   disconnect(socketId: string): { room: Room; color: 'B' | 'W' } | null {
     const room = this.getBySocketId(socketId);
     if (!room) return null;
@@ -110,19 +115,35 @@ export class RoomManager {
     return { room, color };
   }
 
-  /**
-   * Cleanup: xóa phòng waiting hết hạn + phòng có player disconnect quá TTL.
-   * Trả các phòng đã bị "auto-forfeit" (1 bên timeout reconnect → bên kia thắng).
-   */
+  /** Public list: chỉ phòng `isPublic`, status = 'waiting', còn slot. */
+  listPublic(): PublicRoomInfo[] {
+    const result: PublicRoomInfo[] = [];
+    for (const room of this.rooms.values()) {
+      if (!room.isPublic) continue;
+      if (room.status !== 'waiting') continue;
+      if (room.playerCount() >= 2) continue;
+      const host = room.players.B ?? room.players.W;
+      if (!host) continue;
+      result.push({
+        id: room.id,
+        hostName: host.name,
+        hasPassword: room.hasPassword(),
+        playerCount: room.playerCount(),
+        createdAt: room.createdAt,
+      });
+    }
+    // Sắp xếp mới nhất lên đầu
+    result.sort((a, b) => b.createdAt - a.createdAt);
+    return result;
+  }
+
   cleanup(now = Date.now()): { forfeited: { room: Room; loser: 'B' | 'W' }[] } {
     const forfeited: { room: Room; loser: 'B' | 'W' }[] = [];
     for (const [id, room] of this.rooms) {
-      // Phòng waiting hết TTL không ai vào → xóa
       if (room.status === 'waiting' && now - room.createdAt > this.waitingTtlMs) {
         this.rooms.delete(id);
         continue;
       }
-      // Trong ván: kiểm tra reconnect deadline
       if (room.status === 'playing') {
         for (const c of ['B', 'W'] as const) {
           const p = room.players[c];
@@ -132,7 +153,6 @@ export class RoomManager {
           }
         }
       }
-      // Phòng finished + không activity 5 phút → xóa
       if (room.status === 'finished' && now - room.lastActivityAt > 300_000) {
         this.rooms.delete(id);
       }
@@ -144,7 +164,6 @@ export class RoomManager {
     return this.rooms.size;
   }
 
-  /** Test helper: clear all rooms. */
   clear(): void {
     this.rooms.clear();
     this.socketToRoom.clear();
