@@ -256,12 +256,15 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
           <button type="button" onClick={leaveRoom} className="text-sm underline">
             {t('common.leaveRoom')}
           </button>
+        ) : over ? (
+          <button type="button" onClick={leaveRoom} className="text-sm underline">
+            {t('common.leaveRoom')}
+          </button>
         ) : (
           <button
             type="button"
             onClick={() => {
               void resign();
-              leaveRoom();
             }}
             className="text-sm underline"
           >

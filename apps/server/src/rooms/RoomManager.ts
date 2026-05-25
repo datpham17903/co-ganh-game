@@ -148,6 +148,20 @@ export class RoomManager {
     return this.rooms.get(roomId) ?? null;
   }
 
+  /** Xóa phòng + clean tất cả socketToRoom mapping liên quan. */
+  removeRoom(roomId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    for (const c of ['B', 'W'] as const) {
+      const p = room.players[c];
+      if (p) this.socketToRoom.delete(p.socketId);
+    }
+    for (const sp of room.spectators) {
+      this.socketToRoom.delete(sp.socketId);
+    }
+    this.rooms.delete(roomId);
+  }
+
   /**
    * Disconnect handler. Trả info về role đã disconnect:
    * - player: trả color (markDisconnect, không xóa ngay).

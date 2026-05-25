@@ -164,13 +164,45 @@ describe('Socket integration: full PvP flow', () => {
 
     const overA = once<{ winner: 'B' | 'W' | 'draw' }>(a, Events.GAME_OVER);
     const overB = once<{ winner: 'B' | 'W' | 'draw' }>(b, Events.GAME_OVER);
+    const syncA = once<{ state: { status: string } }>(a, Events.GAME_SYNC_STATE);
     await emit(a, Events.GAME_RESIGN, {});
 
-    const [evA, evB] = await Promise.all([overA, overB]);
+    const [evA, evB, sync] = await Promise.all([overA, overB, syncA]);
     expect(evA.winner).toBe('W');
     expect(evB.winner).toBe('W');
+    // Bug-fix: server phải broadcast state mới (status='W_won') để client hiện modal kết quả.
+    expect(sync.state.status).toBe('W_won');
 
     a.disconnect();
     b.disconnect();
+  });
+
+  it('leave waiting room với 1 player → room bị xóa (no ghost room)', async () => {
+    const a = await client();
+    const created = await emit<{ ok: boolean; roomId: string }>(a, Events.ROOM_CREATE, {
+      playerName: 'Solo',
+      isPublic: true,
+    });
+    expect(created.ok).toBe(true);
+    expect(rooms.get(created.roomId)).not.toBeNull();
+
+    // ROOM_LEAVE không có ack — fire-and-forget rồi đợi server xử lý.
+    a.emit(Events.ROOM_LEAVE, {});
+    await new Promise((r) => setTimeout(r, 100));
+    expect(rooms.get(created.roomId)).toBeNull();
+
+    a.disconnect();
+  });
+
+  it('disconnect waiting room với 1 player → room bị xóa', async () => {
+    const a = await client();
+    const created = await emit<{ ok: boolean; roomId: string }>(a, Events.ROOM_CREATE, {
+      playerName: 'Solo2',
+      isPublic: true,
+    });
+    expect(rooms.get(created.roomId)).not.toBeNull();
+    a.disconnect();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(rooms.get(created.roomId)).toBeNull();
   });
 });

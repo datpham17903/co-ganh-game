@@ -266,12 +266,19 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
     if (!room) return cb?.({ ok: false, error: 'NO_ROOM' });
     const color = room.colorOfSocket(socket.id);
     if (!color) return cb?.({ ok: false, error: 'NO_ROOM' });
+    if (room.status !== 'playing') return cb?.({ ok: false, error: 'GAME_NOT_PLAYING' });
     room.resign(color);
     cb?.({ ok: true });
+    // State đã chuyển sang 'finished' — broadcast để client cập nhật và hiện modal.
+    io.to(room.id).emit(Events.GAME_SYNC_STATE, {
+      state: room.state,
+      clock: room.clockSnapshot(),
+    });
     io.to(room.id).emit(Events.GAME_OVER, {
       winner: color === 'B' ? 'W' : 'B',
       reason: 'resign',
     });
+    if (room.isPublic) broadcastLobby();
   });
 
   socket.on(Events.GAME_REMATCH, (_payload: unknown, cb?: Cb<unknown>) => {
@@ -346,6 +353,16 @@ function handleLeave(
 
   const { room, color } = result;
   const oppColor = color === 'B' ? 'W' : 'B';
+
+  // Phòng đang waiting + chỉ có 1 player (chính là người đang leave) → xóa
+  // ngay để không tạo "ghost room" hiển thị trong lobby.
+  if (room.status === 'waiting' && !room.players[oppColor]) {
+    const wasPublic = room.isPublic;
+    rooms.removeRoom(room.id);
+    if (wasPublic) broadcastLobby();
+    return;
+  }
+
   const willForfeit = room.status === 'playing' && intentional;
   socket.to(room.id).emit(Events.ROOM_OPPONENT_LEFT, {
     name: room.players[color]?.name ?? '',
@@ -353,6 +370,10 @@ function handleLeave(
   });
   if (intentional && room.status === 'playing') {
     room.resign(color);
+    io.to(room.id).emit(Events.GAME_SYNC_STATE, {
+      state: room.state,
+      clock: room.clockSnapshot(),
+    });
     io.to(room.id).emit(Events.GAME_OVER, {
       winner: oppColor,
       reason: 'resign',
