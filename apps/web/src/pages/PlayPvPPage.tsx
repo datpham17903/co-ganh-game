@@ -21,6 +21,11 @@ import { ClockDisplay } from '../features/room/ClockDisplay.js';
 import { useClockSync } from '../hooks/useClockSync.js';
 import { useT } from '../i18n/index.js';
 
+// Module-scoped timer cho cleanup sau unmount thật. StrictMode sẽ mount
+// → cleanup → mount lại trong cùng tick; setTimeout(0) cho phép mount
+// thứ 2 cancel cleanup pending trước khi nó chạy.
+let pendingLeaveTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function PlayPvPPage() {
   const { roomId } = useParams();
   if (!roomId) return <RoomLobby />;
@@ -193,6 +198,29 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
     setStateExternal,
   ]);
 
+  // Cleanup chỉ chạy khi unmount component thực sự (rời trang) — emit
+  // room:leave để server xóa phòng nếu là sole-player waiting room. Tránh
+  // ghost room khi user nhấn "← Menu", browser back, hoặc switch route.
+  // Dùng setTimeout(0) + module flag để StrictMode không trigger nhầm
+  // (mount → cleanup → mount → cleanup): cleanup đầu schedule, mount sau
+  // cancel; chỉ unmount thật mới fire.
+  useEffect(() => {
+    if (pendingLeaveTimer !== null) {
+      clearTimeout(pendingLeaveTimer);
+      pendingLeaveTimer = null;
+    }
+    return () => {
+      pendingLeaveTimer = setTimeout(() => {
+        pendingLeaveTimer = null;
+        const sock = getSocket();
+        if (sock.connected) {
+          sock.emit(SocketEvents.ROOM_LEAVE, {});
+        }
+        setSession(null, null);
+      }, 0);
+    };
+  }, [setSession]);
+
   const blackPieces = state.board.filter((c) => c === 'B').length;
   const whitePieces = state.board.filter((c) => c === 'W').length;
   const over = isGameOver(state);
@@ -256,7 +284,7 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
           <button type="button" onClick={leaveRoom} className="text-sm underline">
             {t('common.leaveRoom')}
           </button>
-        ) : over ? (
+        ) : !opponentName || over ? (
           <button type="button" onClick={leaveRoom} className="text-sm underline">
             {t('common.leaveRoom')}
           </button>
@@ -267,8 +295,9 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
               void resign();
             }}
             className="text-sm underline"
+            data-testid="btn-forfeit"
           >
-            {t('common.resign')}
+            {t('common.forfeit')}
           </button>
         )}
       </div>
