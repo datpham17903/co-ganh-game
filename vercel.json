@@ -3,6 +3,5 @@
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter @co-ganh/web build",
-  "outputDirectory": "apps/web/dist",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./apps/web ./packages/engine ./packages/bot ./pnpm-lock.yaml ./package.json"
+  "outputDirectory": "apps/web/dist"
 }
