@@ -6,8 +6,10 @@ import { PlayLocalPage } from './pages/PlayLocalPage.js';
 import { HowToPlayPage } from './pages/HowToPlayPage.js';
 import { ToastContainer } from './components/Toast.js';
 import { BOT_ONLY } from './config.js';
+import { useApplySettings } from './hooks/useApplySettings.js';
 
 export default function App() {
+  useApplySettings();
   return (
     <HashRouter>
       <Routes>

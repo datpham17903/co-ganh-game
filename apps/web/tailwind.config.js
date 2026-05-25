@@ -1,20 +1,22 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        // theo UI_UX.md mục 2.1
-        'bg-primary': '#F5E6C8',
-        'bg-board': '#D9B074',
-        'bg-board-line': '#6B3F1D',
+        // Tokens dùng CSS variables để dark mode hoạt động qua class .dark trên html.
+        // Định nghĩa biến trong styles.css.
+        'bg-primary': 'var(--bg-primary)',
+        'bg-board': 'var(--bg-board)',
+        'bg-board-line': 'var(--bg-board-line)',
         'piece-black': '#1A1A1A',
-        'piece-white': '#FAF7EE',
-        accent: '#C0392B',
-        'accent-2': '#2E7D32',
-        'text-primary': '#2C1810',
-        'text-muted': '#6B5444',
-        surface: '#FFF8E7',
+        'piece-white': 'var(--piece-white)',
+        accent: 'var(--accent)',
+        'accent-2': 'var(--accent-2)',
+        'text-primary': 'var(--text-primary)',
+        'text-muted': 'var(--text-muted)',
+        surface: 'var(--surface)',
       },
       fontFamily: {
         display: ['"Be Vietnam Pro"', '"SF Pro"', 'sans-serif'],
