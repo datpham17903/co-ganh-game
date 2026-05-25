@@ -11,6 +11,9 @@ import { Modal } from '../components/Modal.js';
 import { RoomLobby } from '../features/room/RoomLobby.js';
 import { usePvPGame } from '../features/room/usePvPGame.js';
 import { ChatPanel } from '../features/room/ChatPanel.js';
+import { ClockDisplay } from '../features/room/ClockDisplay.js';
+import { useBackgroundMusic } from '../hooks/useBackgroundMusic.js';
+import { useClockSync } from '../hooks/useClockSync.js';
 import { useT } from '../i18n/index.js';
 
 export function PlayPvPPage() {
@@ -30,6 +33,8 @@ interface ReconnectResponse {
 
 function PvPGameRoom({ roomId }: { roomId: string }) {
   const t = useT();
+  useBackgroundMusic();
+  const { clock } = useClockSync();
   const navigate = useNavigate();
   const setSession = useSocketStore((s) => s.setSession);
   const sessionRoomId = useSocketStore((s) => s.roomId);
@@ -218,6 +223,7 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
           active={state.turn === 'B' && !over}
           isMe={myColor === 'B'}
           name={myColor === 'B' ? t('common.you') : (opponentName ?? t('common.opponent'))}
+          clock={clock}
           t={t}
         />
         <PlayerBadge
@@ -226,6 +232,7 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
           active={state.turn === 'W' && !over}
           isMe={myColor === 'W'}
           name={myColor === 'W' ? t('common.you') : (opponentName ?? t('common.opponent'))}
+          clock={clock}
           t={t}
         />
       </div>
@@ -290,6 +297,7 @@ function PlayerBadge({
   active,
   isMe,
   name,
+  clock,
   t,
 }: {
   color: 'B' | 'W';
@@ -297,6 +305,7 @@ function PlayerBadge({
   active: boolean;
   isMe: boolean;
   name: string;
+  clock: import('../lib/socket.js').ClockState | null;
   t: ReturnType<typeof useT>;
 }) {
   return (
@@ -309,6 +318,11 @@ function PlayerBadge({
         ({color === 'B' ? t('common.black') : t('common.white')})
       </span>
       <span className="ml-2 font-num">{count}</span>
+      {clock && (
+        <span className="ml-2">
+          <ClockDisplay clock={clock} forColor={color} active={active} />
+        </span>
+      )}
     </div>
   );
 }

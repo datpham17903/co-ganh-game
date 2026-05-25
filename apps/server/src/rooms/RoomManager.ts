@@ -137,14 +137,24 @@ export class RoomManager {
     return result;
   }
 
-  cleanup(now = Date.now()): { forfeited: { room: Room; loser: 'B' | 'W' }[] } {
+  cleanup(now = Date.now()): {
+    forfeited: { room: Room; loser: 'B' | 'W' }[];
+    timedOut: { room: Room; loser: 'B' | 'W' }[];
+  } {
     const forfeited: { room: Room; loser: 'B' | 'W' }[] = [];
+    const timedOut: { room: Room; loser: 'B' | 'W' }[] = [];
     for (const [id, room] of this.rooms) {
       if (room.status === 'waiting' && now - room.createdAt > this.waitingTtlMs) {
         this.rooms.delete(id);
         continue;
       }
       if (room.status === 'playing') {
+        // Check clock timeout TRƯỚC reconnect timeout (khả năng cao hơn).
+        const lostByClock = room.checkClockTimeout(now);
+        if (lostByClock) {
+          timedOut.push({ room, loser: lostByClock });
+          continue;
+        }
         for (const c of ['B', 'W'] as const) {
           const p = room.players[c];
           if (p?.disconnectedAt && now - p.disconnectedAt > this.reconnectTtlMs) {
@@ -157,11 +167,18 @@ export class RoomManager {
         this.rooms.delete(id);
       }
     }
-    return { forfeited };
+    return { forfeited, timedOut };
   }
 
   size(): number {
     return this.rooms.size;
+  }
+
+  /** Iterate qua các phòng đang chơi (cho clock broadcast). */
+  forEachPlaying(cb: (room: Room) => void): void {
+    for (const room of this.rooms.values()) {
+      if (room.status === 'playing') cb(room);
+    }
   }
 
   clear(): void {

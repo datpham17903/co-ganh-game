@@ -23,6 +23,7 @@ export const Events = {
   GAME_SYNC_STATE: 'game:syncState',
   CHAT_NEW: 'chat:new',
   CHAT_HISTORY: 'chat:history',
+  CLOCK_UPDATE: 'clock:update',
   ERROR: 'error',
 } as const;
 

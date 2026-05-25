@@ -95,6 +95,7 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
           B: result.room.players.B ? { name: result.room.players.B.name } : null,
           W: result.room.players.W ? { name: result.room.players.W.name } : null,
         },
+        clock: result.room.clockSnapshot(),
       });
     }
     // Khi room đầy, không còn trong public list
@@ -119,8 +120,9 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
       state: r.room.state,
       opponent: opp ? { name: opp.name } : null,
       roomStatus: r.room.status,
+      clock: r.room.clockSnapshot(),
     });
-    socket.emit(Events.GAME_SYNC_STATE, { state: r.room.state });
+    socket.emit(Events.GAME_SYNC_STATE, { state: r.room.state, clock: r.room.clockSnapshot() });
     socket.emit(Events.CHAT_HISTORY, { messages: r.room.chat });
     if (opp && r.room.status === 'playing') {
       socket.emit(Events.GAME_START, {
@@ -129,6 +131,7 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
           B: r.room.players.B ? { name: r.room.players.B.name } : null,
           W: r.room.players.W ? { name: r.room.players.W.name } : null,
         },
+        clock: r.room.clockSnapshot(),
       });
       socket.to(r.room.id).emit(Events.ROOM_OPPONENT_RECONNECTED, {
         name: r.room.players[r.color]?.name ?? '',
@@ -161,6 +164,7 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
       state: result.state,
       move: result.state.moveHistory[result.state.moveHistory.length - 1],
       captures: result.captures,
+      clock: room.clockSnapshot(),
       serverTime: Date.now(),
     });
     if (result.state.status !== 'playing') {
@@ -201,6 +205,7 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
           B: room.players.B ? { name: room.players.B.name } : null,
           W: room.players.W ? { name: room.players.W.name } : null,
         },
+        clock: room.clockSnapshot(),
       });
     }
   });

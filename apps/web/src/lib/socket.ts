@@ -8,10 +8,12 @@ export function getSocket(): Socket {
   if (!socket) {
     socket = io(SERVER_URL, {
       autoConnect: false,
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
     });
   }
   return socket;
@@ -24,14 +26,19 @@ export function disconnectSocket(): void {
   }
 }
 
-/** Promisified emit-with-ack. */
+/** Promisified emit-with-ack. Default timeout 20s để chịu được cold start
+ * của free hosting (Render free tier có thể mất ~30s wake up). */
 export function emit<T = unknown>(
   s: Socket,
   event: string,
   payload: unknown,
-  timeoutMs = 5000,
+  timeoutMs = 20000,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
+    if (!s.connected) {
+      // Try connecting first
+      s.connect();
+    }
     const timer = setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs);
     s.emit(event, payload, (resp: T) => {
       clearTimeout(timer);
@@ -61,7 +68,14 @@ export const SocketEvents = {
   GAME_SYNC_STATE: 'game:syncState',
   CHAT_NEW: 'chat:new',
   CHAT_HISTORY: 'chat:history',
+  CLOCK_UPDATE: 'clock:update',
 } as const;
+
+export interface ClockState {
+  B: number;
+  W: number;
+  turn: 'B' | 'W' | null;
+}
 
 export interface PublicRoomInfo {
   id: string;

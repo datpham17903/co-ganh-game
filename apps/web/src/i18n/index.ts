@@ -48,6 +48,7 @@ const dict = {
     'result.blackWin': 'Đen thắng',
     'result.whiteWin': 'Trắng thắng',
     'settings.sound': 'Âm thanh',
+    'settings.music': 'Nhạc nền',
     'settings.theme': 'Giao diện',
     'settings.themeLight': '☀ Sáng',
     'settings.themeDark': '🌙 Tối',
@@ -103,6 +104,8 @@ const dict = {
     'chat.send': 'Gửi',
     'chat.empty': 'Chưa có tin nhắn nào',
     'chat.rateLimit': 'Gửi chậm thôi nhé',
+    'clock.timeout': 'Hết giờ',
+    'result.timeout': 'Đối thủ hết giờ — bạn thắng',
     'rules.title': 'Hướng dẫn luật cờ gánh',
     'rules.s1.title': '1. Bàn cờ',
     'rules.s1.body':
@@ -166,6 +169,7 @@ const dict = {
     'result.blackWin': 'Black wins',
     'result.whiteWin': 'White wins',
     'settings.sound': 'Sound',
+    'settings.music': 'Background music',
     'settings.theme': 'Theme',
     'settings.themeLight': '☀ Light',
     'settings.themeDark': '🌙 Dark',
@@ -221,6 +225,8 @@ const dict = {
     'chat.send': 'Send',
     'chat.empty': 'No messages yet',
     'chat.rateLimit': 'Slow down a bit',
+    'clock.timeout': 'Time out',
+    'result.timeout': 'Opponent ran out of time — you win',
     'rules.title': 'How to play Cờ Gánh',
     'rules.s1.title': '1. The board',
     'rules.s1.body':

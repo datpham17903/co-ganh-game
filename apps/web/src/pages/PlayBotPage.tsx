@@ -12,10 +12,12 @@ import { useBotMove } from '../features/bot/useBotMove.js';
 import { MoveHistory } from '../features/game/MoveHistory.js';
 import { useGameSound } from '../features/game/useGameSound.js';
 import { audio } from '../lib/audio.js';
+import { useBackgroundMusic } from '../hooks/useBackgroundMusic.js';
 import { useT } from '../i18n/index.js';
 
 export function PlayBotPage() {
   const t = useT();
+  useBackgroundMusic();
   const [pickerOpen, setPickerOpen] = useState(true);
   const [difficulty, setDifficulty] = useState<BotDifficulty>(
     useSettingsStore.getState().botDifficulty,

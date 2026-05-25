@@ -7,6 +7,7 @@ describe('settingsStore', () => {
     localStorage.clear();
     useSettingsStore.setState({
       soundEnabled: true,
+      musicEnabled: true,
       theme: 'light',
       language: 'vi',
       botDifficulty: 'medium',
@@ -17,6 +18,7 @@ describe('settingsStore', () => {
   it('default state hợp lý', () => {
     const s = useSettingsStore.getState();
     expect(s.soundEnabled).toBe(true);
+    expect(s.musicEnabled).toBe(true);
     expect(s.theme).toBe('light');
     expect(s.language).toBe('vi');
     expect(s.botDifficulty).toBe('medium');
@@ -27,6 +29,13 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().soundEnabled).toBe(false);
     act(() => useSettingsStore.getState().toggleSound());
     expect(useSettingsStore.getState().soundEnabled).toBe(true);
+  });
+
+  it('toggleMusic đảo trạng thái', () => {
+    act(() => useSettingsStore.getState().toggleMusic());
+    expect(useSettingsStore.getState().musicEnabled).toBe(false);
+    act(() => useSettingsStore.getState().toggleMusic());
+    expect(useSettingsStore.getState().musicEnabled).toBe(true);
   });
 
   it('setTheme + setLanguage + setBotDifficulty + setPlayerName', () => {

@@ -40,16 +40,31 @@ io.on('connection', (socket) => {
   });
 });
 
-// Cleanup loop mỗi 5 giây
+// Cleanup loop mỗi 1 giây — ngắn vì cần check clock timeout chính xác.
 const cleanupInterval = setInterval(() => {
-  const { forfeited } = rooms.cleanup();
+  const { forfeited, timedOut } = rooms.cleanup();
   for (const f of forfeited) {
     io.to(f.room.id).emit('game:over', {
       winner: f.loser === 'B' ? 'W' : 'B',
       reason: 'disconnect',
     });
   }
-}, 5000);
+  for (const t of timedOut) {
+    io.to(t.room.id).emit('game:over', {
+      winner: t.loser === 'B' ? 'W' : 'B',
+      reason: 'timeout',
+    });
+  }
+}, 1000);
+
+// Broadcast clock state mỗi giây cho phòng đang chơi để client sync.
+const clockBroadcast = setInterval(() => {
+  // Iterate rooms qua RoomManager — cần expose một method.
+  // Implement đơn giản: rooms.forEachActive callback.
+  rooms.forEachPlaying((room) => {
+    io.to(room.id).emit('clock:update', { clock: room.clockSnapshot() });
+  });
+}, 1000);
 
 const port = Number(process.env.PORT ?? 3001);
 httpServer.listen(port, () => {
@@ -59,6 +74,7 @@ httpServer.listen(port, () => {
 // Graceful shutdown for tests
 process.on('SIGINT', () => {
   clearInterval(cleanupInterval);
+  clearInterval(clockBroadcast);
   httpServer.close();
   process.exit(0);
 });

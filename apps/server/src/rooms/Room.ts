@@ -41,7 +41,19 @@ export interface RoomOptions {
   isPublic: boolean;
   /** Plain text password — sẽ hash bằng SHA-256 + lưu hash. Trống = không pw. */
   password?: string;
+  /** Initial clock time per player, milliseconds. Default 10 phút. */
+  initialClockMs?: number;
 }
+
+/** Clock state cho mỗi bên. */
+export interface ClockState {
+  /** Thời gian còn lại (ms) khi turnStartedAt được snapshot. */
+  remainingMs: { B: number; W: number };
+  /** Timestamp khi lượt hiện tại bắt đầu. Null nếu game chưa start hoặc đã end. */
+  turnStartedAt: number | null;
+}
+
+const DEFAULT_CLOCK_MS = 10 * 60 * 1000;
 
 export class Room {
   status: RoomStatus = 'waiting';
@@ -59,6 +71,10 @@ export class Room {
   chat: ChatMessage[] = [];
   private chatNextId = 1;
 
+  /** Clock cho mỗi bên (10 phút mặc định). */
+  clock: ClockState;
+  private initialClockMs: number;
+
   constructor(
     public id: string,
     opts: RoomOptions = { isPublic: false },
@@ -67,6 +83,11 @@ export class Room {
     if (opts.password && opts.password.length > 0) {
       this.passwordHash = sha256(opts.password);
     }
+    this.initialClockMs = opts.initialClockMs ?? DEFAULT_CLOCK_MS;
+    this.clock = {
+      remainingMs: { B: this.initialClockMs, W: this.initialClockMs },
+      turnStartedAt: null,
+    };
   }
 
   hasPassword(): boolean {
@@ -111,6 +132,8 @@ export class Room {
       this.players.W = info;
       this.status = 'playing';
       this.lastActivityAt = Date.now();
+      // Game thực sự bắt đầu — kích hoạt đồng hồ cho B (đi trước).
+      this.clock.turnStartedAt = Date.now();
       return 'W';
     }
     throw new Error('Room is full');
@@ -160,13 +183,70 @@ export class Room {
     );
     this.state = next;
     this.lastActivityAt = Date.now();
-    if (isGameOver(next)) this.status = 'finished';
+
+    // Trừ thời gian đã dùng cho `color`, snapshot turn mới cho đối thủ.
+    this.consumeClock(color);
+    if (isGameOver(next)) {
+      this.status = 'finished';
+      this.clock.turnStartedAt = null;
+    }
     return { ok: true, state: next, captures };
+  }
+
+  /** Trừ ms đã dùng cho `color`, set turnStartedAt cho lượt tiếp theo. */
+  private consumeClock(color: Color, now = Date.now()): void {
+    if (this.clock.turnStartedAt !== null) {
+      const used = now - this.clock.turnStartedAt;
+      this.clock.remainingMs[color] = Math.max(0, this.clock.remainingMs[color] - used);
+    }
+    this.clock.turnStartedAt = now;
+  }
+
+  /**
+   * Snapshot clock hiện tại — trả remainingMs đã trừ đi thời gian đang chạy.
+   * Dùng cho emit ra client.
+   */
+  clockSnapshot(now = Date.now()): { B: number; W: number; turn: Color | null } {
+    const snap = { ...this.clock.remainingMs };
+    if (this.status === 'playing' && this.clock.turnStartedAt !== null) {
+      const used = now - this.clock.turnStartedAt;
+      const cur = this.state.turn;
+      snap[cur] = Math.max(0, snap[cur] - used);
+    }
+    return {
+      B: snap.B,
+      W: snap.W,
+      turn: this.status === 'playing' ? this.state.turn : null,
+    };
+  }
+
+  /**
+   * Kiểm tra timeout. Nếu bên đang đi hết giờ → bên kia thắng.
+   * Trả color hết giờ hoặc null. Phải gọi định kỳ từ cleanup loop.
+   */
+  checkClockTimeout(now = Date.now()): Color | null {
+    if (this.status !== 'playing' || this.clock.turnStartedAt === null) return null;
+    const turn = this.state.turn;
+    const used = now - this.clock.turnStartedAt;
+    const remaining = this.clock.remainingMs[turn] - used;
+    if (remaining <= 0) {
+      this.clock.remainingMs[turn] = 0;
+      this.clock.turnStartedAt = null;
+      this.status = 'finished';
+      this.state = {
+        ...this.state,
+        status: turn === 'B' ? 'W_won' : 'B_won',
+      };
+      this.lastActivityAt = now;
+      return turn;
+    }
+    return null;
   }
 
   resign(color: Color): void {
     this.status = 'finished';
     this.lastActivityAt = Date.now();
+    this.clock.turnStartedAt = null;
     this.state = {
       ...this.state,
       status: color === 'B' ? 'W_won' : 'B_won',
@@ -178,6 +258,10 @@ export class Room {
     this.status = 'playing';
     this.rematchRequested = { B: false, W: false };
     this.lastActivityAt = Date.now();
+    this.clock = {
+      remainingMs: { B: this.initialClockMs, W: this.initialClockMs },
+      turnStartedAt: Date.now(),
+    };
   }
 
   /**
