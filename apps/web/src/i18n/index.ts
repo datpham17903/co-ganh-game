@@ -122,6 +122,10 @@ const dict = {
     'clock.timeout': 'Hết giờ',
     'result.timeout': 'Đối thủ hết giờ — bạn thắng',
     'rules.title': 'Hướng dẫn luật cờ gánh',
+    'rules.intro.title': 'Cờ gánh là gì?',
+    'rules.intro.body':
+      'Cờ gánh là trò chơi cờ dân gian Việt Nam, phổ biến ở các vùng nông thôn miền Trung và miền Nam. Bàn cờ 5×5 với 25 điểm giao, mỗi bên 8 quân; mục tiêu là gánh (kẹp) hoặc vây (chẹt) quân đối phương để chuyển chúng sang màu của mình. Bên hết quân hoặc không còn nước đi sẽ thua.',
+    'rules.wiki': 'Đọc thêm trên Wikipedia',
     'rules.s1.title': '1. Bàn cờ',
     'rules.s1.body':
       'Bàn 5×5 = 25 điểm giao. Mỗi bên có 8 quân, đặt ở rìa bàn. Đường nối: ngang, dọc, và chéo tại các điểm có (r+c) chẵn.',
@@ -258,6 +262,10 @@ const dict = {
     'clock.timeout': 'Time out',
     'result.timeout': 'Opponent ran out of time — you win',
     'rules.title': 'How to play Cờ Gánh',
+    'rules.intro.title': 'What is Cờ Gánh?',
+    'rules.intro.body':
+      'Cờ Gánh is a traditional Vietnamese folk board game, popular in the central and southern countryside. Played on a 5×5 grid with 25 intersections, each side starts with 8 pieces. The goal is to "gánh" (sandwich) or "vây" (surround) opposing pieces to flip them to your color. The side that runs out of pieces or has no legal move loses.',
+    'rules.wiki': 'Read more on Wikipedia',
     'rules.s1.title': '1. The board',
     'rules.s1.body':
       '5×5 grid = 25 intersections. Each side has 8 pieces placed at the edges. Connections: horizontal, vertical, and diagonal at points where (r+c) is even.',

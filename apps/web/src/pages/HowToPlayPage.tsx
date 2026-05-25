@@ -10,6 +10,20 @@ export function HowToPlayPage() {
       </Link>
       <h1 className="font-display text-3xl mt-4">{t('rules.title')}</h1>
 
+      <Section title={t('rules.intro.title')}>
+        <p>{t('rules.intro.body')}</p>
+        <p className="mt-2">
+          <a
+            href="https://vi.wikipedia.org/wiki/C%E1%BB%9D_g%C3%A1nh"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline"
+          >
+            {t('rules.wiki')} ↗
+          </a>
+        </p>
+      </Section>
+
       <Section title={t('rules.s1.title')}>
         <p>{t('rules.s1.body')}</p>
       </Section>
