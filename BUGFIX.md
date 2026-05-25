@@ -40,18 +40,19 @@
 
 ## 2. SEVERITY (Mức độ nghiêm trọng)
 
-| Mức | Định nghĩa | Ví dụ | Hạn fix |
-|-----|------------|-------|---------|
-| **Critical** | Block không chơi được, mất dữ liệu, security | App trắng màn hình, server crash, lộ token | Ngay |
-| **High** | Tính năng chính sai, ảnh hưởng đa số user | Bot đi nước không hợp lệ, gánh không đổi màu, PvP không sync | Trong phase |
-| **Medium** | Tính năng phụ sai hoặc UX khó chịu | Animation giật, sound không phát, modal lệch | Phase tiếp |
-| **Low** | Cosmetic, edge case hiếm | Spacing sai 2px, typo, contrast hơi thấp | Backlog |
+| Mức          | Định nghĩa                                   | Ví dụ                                                        | Hạn fix     |
+| ------------ | -------------------------------------------- | ------------------------------------------------------------ | ----------- |
+| **Critical** | Block không chơi được, mất dữ liệu, security | App trắng màn hình, server crash, lộ token                   | Ngay        |
+| **High**     | Tính năng chính sai, ảnh hưởng đa số user    | Bot đi nước không hợp lệ, gánh không đổi màu, PvP không sync | Trong phase |
+| **Medium**   | Tính năng phụ sai hoặc UX khó chịu           | Animation giật, sound không phát, modal lệch                 | Phase tiếp  |
+| **Low**      | Cosmetic, edge case hiếm                     | Spacing sai 2px, typo, contrast hơi thấp                     | Backlog     |
 
 ---
 
 ## 3. TEMPLATE BUG
 
 Khi log bug, dùng format:
+
 ```markdown
 ### [SEVERITY] BUG-XXX: Tóm tắt ngắn
 
@@ -64,6 +65,7 @@ Khi log bug, dùng format:
 Mô tả ngắn bug là gì.
 
 **Steps to reproduce:**
+
 1. ...
 2. ...
 3. ...
@@ -73,7 +75,9 @@ Mô tả ngắn bug là gì.
 
 **Logs / Screenshots:**
 ```
+
 <paste log hoặc link screenshot>
+
 ```
 
 **Root cause (sau điều tra):** ...
@@ -89,6 +93,7 @@ Mô tả ngắn bug là gì.
 Trước khi merge mỗi phase, kiểm tra checklist này để tránh bug đã biết:
 
 ### 4.1. Engine
+
 - [ ] Đường chéo có đúng tại các điểm có chéo không? (RULES.md 1.2)
 - [ ] Gánh có check đường nối hình học giữa A-M-B?
 - [ ] Vây áp dụng SAU gánh, không phản ứng dây chuyền?
@@ -97,6 +102,7 @@ Trước khi merge mỗi phase, kiểm tra checklist này để tránh bug đã 
 - [ ] `noProgressCount` reset khi có gánh/vây?
 
 ### 4.2. Bot
+
 - [ ] Bot không bao giờ trả nước không hợp lệ?
 - [ ] PRNG dùng seed, không dùng `Math.random()` trực tiếp?
 - [ ] Bot không mutate state?
@@ -104,6 +110,7 @@ Trước khi merge mỗi phase, kiểm tra checklist này để tránh bug đã 
 - [ ] Hard không vượt quá `maxThinkMs`?
 
 ### 4.3. UI
+
 - [ ] Click rapid 2 quân khác nhau có gây race condition?
 - [ ] Animation đang chạy có disable input không?
 - [ ] Modal có thể đóng bằng Escape?
@@ -111,6 +118,7 @@ Trước khi merge mỗi phase, kiểm tra checklist này để tránh bug đã 
 - [ ] Reduced motion có tắt animation không?
 
 ### 4.4. Multiplayer
+
 - [ ] Server reject mọi nước không hợp lệ?
 - [ ] Hash state khớp giữa server và 2 client sau mỗi nước?
 - [ ] Reconnect đúng player (không nhầm với người khác)?
@@ -122,34 +130,42 @@ Trước khi merge mỗi phase, kiểm tra checklist này để tránh bug đã 
 ## 5. KHU VỰC RỦI RO CAO (đã biết)
 
 ### 5.1. Đường chéo bàn cờ
+
 - **Rủi ro:** dễ implement sai, khiến gánh chéo không đúng.
 - **Cách phòng:** test `adjacency.test.ts` ≥ 8 case bao trùm các loại điểm.
 
 ### 5.2. Phản ứng dây chuyền gánh
+
 - **Rủi ro:** dễ vô tình code thành dây chuyền (gánh xong xét lại).
 - **Cách phòng:** test `không-phản-ứng-dây-chuyền` rõ ràng. Code: chỉ duyệt 1 lần qua các đường nối từ M.
 
 ### 5.3. State sync lệch trong PvP
+
 - **Rủi ro:** client A và B có state khác nhau sau 1 nước.
 - **Cách phòng:** so sánh `hashState` sau mỗi `moveApplied`. Nếu lệch → request `syncState`.
 
 ### 5.4. Bot freeze UI
+
 - **Rủi ro:** bot hard chạy main thread → UI lag.
 - **Cách phòng:** **bắt buộc** Web Worker. Kiểm tra: chạy bot, kéo bàn cờ — không lag.
 
 ### 5.5. Bộ nhớ tăng dần
+
 - **Rủi ro:** Move history không giới hạn, transposition table không evict, Web Worker không terminate.
 - **Cách phòng:** `moveHistory` cap ở 200 entry; TT clear sau mỗi ván; worker terminate khi rời trang.
 
 ### 5.6. Mã phòng trùng
+
 - **Rủi ro:** sinh trùng → 2 phòng cùng ID → join sai.
 - **Cách phòng:** check Map `has(id)` trước khi assign, retry 3 lần.
 
 ### 5.7. Browser policy âm thanh
+
 - **Rủi ro:** `Audio.play()` bị block trước khi user interact.
 - **Cách phòng:** chỉ play sau click đầu tiên. Lazy preload.
 
 ### 5.8. Click khi animation đang chạy
+
 - **Rủi ro:** trigger move thứ 2 trước khi nước trước hoàn tất → state lỗi.
 - **Cách phòng:** state machine có `ANIMATING`, mọi click bị disable trong state này.
 
@@ -160,25 +176,26 @@ Trước khi merge mỗi phase, kiểm tra checklist này để tránh bug đã 
 > Subagent ghi vào đây khi phát hiện bug mới. Main agent triage sau.
 
 <!-- Placeholder, sẽ điền khi có bug thật -->
-*(Chưa có bug nào)*
+
+_(Chưa có bug nào)_
 
 ---
 
 ## 7. TRIAGED (Đã phân loại, chờ fix)
 
-*(Chưa có)*
+_(Chưa có)_
 
 ---
 
 ## 8. IN PROGRESS (Đang fix)
 
-*(Chưa có)*
+_(Chưa có)_
 
 ---
 
 ## 9. FIXED (Đã fix, chờ verify)
 
-*(Chưa có)*
+_(Chưa có)_
 
 ---
 
@@ -186,9 +203,9 @@ Trước khi merge mỗi phase, kiểm tra checklist này để tránh bug đã 
 
 Format mục này: tóm tắt 1 dòng để dễ tra cứu sau.
 
-| ID | Tóm tắt | Module | Severity | Phase | PR |
-|----|---------|--------|----------|-------|-----|
-| - | - | - | - | - | - |
+| ID  | Tóm tắt | Module | Severity | Phase | PR  |
+| --- | ------- | ------ | -------- | ----- | --- |
+| -   | -       | -      | -        | -     | -   |
 
 ---
 
@@ -196,9 +213,9 @@ Format mục này: tóm tắt 1 dòng để dễ tra cứu sau.
 
 Bug được quyết định không fix hoặc dời sang sau, kèm lý do.
 
-| ID | Tóm tắt | Lý do |
-|----|---------|-------|
-| - | - | - |
+| ID  | Tóm tắt | Lý do |
+| --- | ------- | ----- |
+| -   | -       | -     |
 
 ---
 
@@ -207,16 +224,30 @@ Bug được quyết định không fix hoặc dời sang sau, kèm lý do.
 Các vấn đề chưa rõ luật/UX, cần user quyết định:
 
 ### D-001: Quy ước "lượt đi đầu tiên"
+
 - RULES.md mục 2 chốt: ĐEN đi trước.
 - Câu hỏi: Khi user vs bot, mặc định user màu gì?
 - **Quyết định:** UI cho user chọn màu, default Đen (đi trước).
 
 ### D-002: Luật "mở" (force capture)
+
 - RULES.md mục 5 chốt: KHÔNG ép buộc.
 - Có cần hiển thị cảnh báo "bạn đang để bị gánh" không?
 - **Quyết định:** Có ở mức Dễ và Trung bình (tooltip), không ở Khó. Toggle được trong settings.
 
+### D-004: Bot Hard không vượt Medium qua bench
+
+- Self-play bench (6 ván/match): Hard vs Medium = 0W/0L/6D.
+- Lý do: cờ gánh chỉ đổi màu, không loại bỏ → ván rất dễ hòa lặp 3 lần;
+  Hard sẽ chọn nước "thận trọng" giống Medium nên kết cục giống nhau.
+- **Quyết định:** chấp nhận trong MVP. Khi vào Phase tuning:
+  - Thêm penalty cho thế hòa khi đang dẫn material.
+  - Anti-repetition trong eval (giảm điểm nếu lặp positionHistory).
+  - Quiescence search để Hard nhìn xa hơn các thế gánh dây chuyền.
+- Tham chiếu: BOT.md mục 5.4 + 7.2.
+
 ### D-003: Số lượng quân ban đầu
+
 - Wikipedia ghi "8 quân mỗi bên" nhưng có biến thể 9 quân (thêm quân giữa).
 - Layout đã chốt 8/8 trong RULES.md mục 1.3.
 - Nếu user muốn 9/9, để ở phase mở rộng (post-MVP).
@@ -226,6 +257,7 @@ Các vấn đề chưa rõ luật/UX, cần user quyết định:
 ## 13. WORKFLOW CHO MAIN AGENT
 
 Khi nhận báo bug từ subagent:
+
 1. Đọc bug report đầy đủ
 2. Xác minh bằng cách tự reproduce nếu có thể
 3. Phân loại severity + module
@@ -242,12 +274,14 @@ Khi nhận báo bug từ subagent:
 ## 14. RETROSPECTIVE (sau mỗi phase)
 
 Sau mỗi phase, ghi lại:
+
 - Số bug phát hiện trong phase
 - Số bug fix được trong phase, số trôi sang phase sau
 - Bug nặng nhất + bài học
 - Cải tiến quy trình cho phase tiếp
 
 ### Phase X retro
+
 - Found: ?
 - Fixed in phase: ?
 - Carried over: ?
