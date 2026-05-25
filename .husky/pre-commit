@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+# Tìm pnpm: PATH bình thường, hoặc Windows npm global
+if command -v pnpm >/dev/null 2>&1; then
+  PNPM=pnpm
+elif [ -f "$HOME/AppData/Roaming/npm/pnpm.cmd" ]; then
+  PNPM="$HOME/AppData/Roaming/npm/pnpm.cmd"
+elif [ -f "$USERPROFILE/AppData/Roaming/npm/pnpm.cmd" ]; then
+  PNPM="$USERPROFILE/AppData/Roaming/npm/pnpm.cmd"
+else
+  echo "pre-commit: pnpm not found in PATH"
+  exit 1
+fi
+
+"$PNPM" lint-staged
