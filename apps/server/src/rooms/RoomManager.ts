@@ -3,21 +3,42 @@ import { generatePlayerToken, generateRoomCode, isValidRoomCode } from '../utils
 
 export interface RoomManagerOptions {
   maxRooms?: number;
-  /** TTL phòng waiting (default 10 phút). */
   waitingTtlMs?: number;
-  /** Reconnect deadline (default 60s). */
   reconnectTtlMs?: number;
   rand?: () => number;
 }
 
-/** Brief info trả qua room:list — không leak password hash. */
+/** Brief info trả qua room:list. Không leak password hash. */
 export interface PublicRoomInfo {
   id: string;
+  /** Tên phòng do người tạo đặt; rỗng nếu không. */
+  name: string;
   hostName: string;
   hasPassword: boolean;
   playerCount: number;
+  spectatorCount: number;
+  status: 'waiting' | 'playing';
   createdAt: number;
 }
+
+export interface ListPublicQuery {
+  /** Search trong name + hostName + id (case-insensitive). */
+  search?: string;
+  /** Chỉ phòng đang chờ (default true). */
+  waitingOnly?: boolean;
+  /** Cho phép spectate (default true → bao gồm cả status='playing'). */
+  includeSpectatable?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ListPublicResult {
+  rooms: PublicRoomInfo[];
+  total: number;
+}
+
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 100;
 
 export class RoomManager {
   private rooms = new Map<string, Room>();
@@ -34,16 +55,11 @@ export class RoomManager {
     this.rand = opts.rand ?? Math.random;
   }
 
-  /** Tạo phòng mới với 1 player. */
   create(
     socketId: string,
     name: string,
     opts: RoomOptions = { isPublic: false },
-  ): {
-    room: Room;
-    color: 'B';
-    token: string;
-  } {
+  ): { room: Room; color: 'B'; token: string } {
     if (this.rooms.size >= this.maxRooms) throw new Error('MAX_ROOMS');
     let id = '';
     for (let i = 0; i < 5; i++) {
@@ -81,6 +97,32 @@ export class RoomManager {
     return { ok: true, room, color, token };
   }
 
+  /**
+   * Spectate: khán giả vào phòng public xem trận. Không cần password (để mọi
+   * người xem được). Không nhận được màu, không có token reconnect.
+   */
+  spectate(
+    roomId: string,
+    socketId: string,
+    name: string,
+  ):
+    | { ok: true; room: Room }
+    | { ok: false; error: 'NOT_FOUND' | 'NOT_PUBLIC' | 'SPECTATORS_FULL' | 'ALREADY_PLAYER' } {
+    const room = this.rooms.get(roomId);
+    if (!room) return { ok: false, error: 'NOT_FOUND' };
+    if (!room.isPublic) return { ok: false, error: 'NOT_PUBLIC' };
+    try {
+      room.addSpectator(socketId, name);
+      this.socketToRoom.set(socketId, roomId);
+      return { ok: true, room };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'ERROR';
+      if (msg === 'SPECTATORS_FULL') return { ok: false, error: 'SPECTATORS_FULL' };
+      if (msg === 'ALREADY_PLAYER') return { ok: false, error: 'ALREADY_PLAYER' };
+      return { ok: false, error: 'NOT_FOUND' };
+    }
+  }
+
   reconnect(
     roomId: string,
     socketId: string,
@@ -106,35 +148,82 @@ export class RoomManager {
     return this.rooms.get(roomId) ?? null;
   }
 
-  disconnect(socketId: string): { room: Room; color: 'B' | 'W' } | null {
+  /**
+   * Disconnect handler. Trả info về role đã disconnect:
+   * - player: trả color (markDisconnect, không xóa ngay).
+   * - spectator: xóa khỏi spectators list.
+   * - none: trả null.
+   */
+  disconnect(
+    socketId: string,
+  ): { room: Room; role: 'player'; color: 'B' | 'W' } | { room: Room; role: 'spectator' } | null {
     const room = this.getBySocketId(socketId);
     if (!room) return null;
-    const color = room.markDisconnect(socketId);
+    const color = room.colorOfSocket(socketId);
+    if (color) {
+      room.markDisconnect(socketId);
+      this.socketToRoom.delete(socketId);
+      return { room, role: 'player', color };
+    }
+    if (room.spectatorIndex(socketId) >= 0) {
+      room.removeSpectator(socketId);
+      this.socketToRoom.delete(socketId);
+      return { room, role: 'spectator' };
+    }
     this.socketToRoom.delete(socketId);
-    if (!color) return null;
-    return { room, color };
+    return null;
   }
 
-  /** Public list: chỉ phòng `isPublic`, status = 'waiting', còn slot. */
-  listPublic(): PublicRoomInfo[] {
-    const result: PublicRoomInfo[] = [];
+  /**
+   * Public list với filter + pagination. Phòng đầy/finished bị loại.
+   * Mặc định: bao gồm cả phòng đang chơi (để có thể spectate).
+   */
+  listPublic(query: ListPublicQuery = {}): ListPublicResult {
+    const search = (query.search ?? '').trim().toLowerCase();
+    const limit = Math.min(MAX_LIMIT, Math.max(1, query.limit ?? DEFAULT_LIMIT));
+    const offset = Math.max(0, query.offset ?? 0);
+    const includeSpectatable = query.includeSpectatable !== false;
+    const waitingOnly = query.waitingOnly === true;
+
+    // Filter pass — không sort hết tất cả nếu chỉ cần page nhỏ.
+    const matched: PublicRoomInfo[] = [];
     for (const room of this.rooms.values()) {
       if (!room.isPublic) continue;
-      if (room.status !== 'waiting') continue;
-      if (room.playerCount() >= 2) continue;
+      if (room.status === 'finished') continue;
+      if (waitingOnly && room.status !== 'waiting') continue;
+      if (room.status === 'playing' && !includeSpectatable) continue;
+      // Phòng waiting full (không thể) hoặc playing đầy không cần loại — vẫn cho spectate.
       const host = room.players.B ?? room.players.W;
       if (!host) continue;
-      result.push({
+      if (search) {
+        const idLow = room.id.toLowerCase();
+        const nameLow = room.name.toLowerCase();
+        const hostLow = host.name.toLowerCase();
+        const wL = room.players.W?.name.toLowerCase() ?? '';
+        if (
+          !idLow.includes(search) &&
+          !nameLow.includes(search) &&
+          !hostLow.includes(search) &&
+          !wL.includes(search)
+        ) {
+          continue;
+        }
+      }
+      matched.push({
         id: room.id,
+        name: room.name,
         hostName: host.name,
         hasPassword: room.hasPassword(),
         playerCount: room.playerCount(),
+        spectatorCount: room.spectatorCount(),
+        status: room.status === 'waiting' ? 'waiting' : 'playing',
         createdAt: room.createdAt,
       });
     }
-    // Sắp xếp mới nhất lên đầu
-    result.sort((a, b) => b.createdAt - a.createdAt);
-    return result;
+    matched.sort((a, b) => b.createdAt - a.createdAt);
+    const total = matched.length;
+    const page = matched.slice(offset, offset + limit);
+    return { rooms: page, total };
   }
 
   cleanup(now = Date.now()): {
@@ -149,7 +238,6 @@ export class RoomManager {
         continue;
       }
       if (room.status === 'playing') {
-        // Check clock timeout TRƯỚC reconnect timeout (khả năng cao hơn).
         const lostByClock = room.checkClockTimeout(now);
         if (lostByClock) {
           timedOut.push({ room, loser: lostByClock });
@@ -174,7 +262,6 @@ export class RoomManager {
     return this.rooms.size;
   }
 
-  /** Iterate qua các phòng đang chơi (cho clock broadcast). */
   forEachPlaying(cb: (room: Room) => void): void {
     for (const room of this.rooms.values()) {
       if (room.status === 'playing') cb(room);

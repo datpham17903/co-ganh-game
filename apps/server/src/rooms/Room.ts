@@ -20,11 +20,16 @@ export interface PlayerInfo {
   disconnectedAt: number | null;
 }
 
+export interface SpectatorInfo {
+  socketId: string;
+  name: string;
+  joinedAt: number;
+}
+
 export interface ChatMessage {
   id: number;
-  /** 'B' | 'W' khi từ player; 'system' cho thông báo. */
-  from: Color | 'system';
-  /** Tên người gửi (đã sanitize), hoặc 'system'. */
+  /** 'B' | 'W' khi từ player; 'spectator' từ khán giả; 'system' cho thông báo. */
+  from: Color | 'spectator' | 'system';
   name: string;
   text: string;
   at: number;
@@ -39,21 +44,24 @@ export type MoveResult =
 
 export interface RoomOptions {
   isPublic: boolean;
-  /** Plain text password — sẽ hash bằng SHA-256 + lưu hash. Trống = không pw. */
+  /** Plain text password — sẽ hash bằng SHA-256. Trống = không pw. */
   password?: string;
   /** Initial clock time per player, milliseconds. Default 10 phút. */
   initialClockMs?: number;
+  /** Tên hiển thị của phòng (max 30 char). Trống → dùng id làm fallback ở client. */
+  name?: string;
 }
 
-/** Clock state cho mỗi bên. */
 export interface ClockState {
-  /** Thời gian còn lại (ms) khi turnStartedAt được snapshot. */
   remainingMs: { B: number; W: number };
-  /** Timestamp khi lượt hiện tại bắt đầu. Null nếu game chưa start hoặc đã end. */
   turnStartedAt: number | null;
 }
 
 const DEFAULT_CLOCK_MS = 10 * 60 * 1000;
+/** Max spectators per room — chống spam scale. */
+export const MAX_SPECTATORS = 50;
+/** Max length của room name. */
+export const ROOM_NAME_MAX = 30;
 
 export class Room {
   status: RoomStatus = 'waiting';
@@ -63,15 +71,16 @@ export class Room {
   lastActivityAt: number = Date.now();
   rematchRequested: { B: boolean; W: boolean } = { B: false, W: false };
 
-  /** SHA-256 hash của password (hex). null = không có. */
   passwordHash: string | null = null;
-  /** Có hiển thị trong public room list không. */
   isPublic = false;
-  /** Chat history (giới hạn 100 msg gần nhất). */
+  /** Tên phòng do người tạo đặt. Empty string nếu không. */
+  name = '';
   chat: ChatMessage[] = [];
   private chatNextId = 1;
 
-  /** Clock cho mỗi bên (10 phút mặc định). */
+  /** Khán giả đang xem trận. Không tham gia chơi, không tính color. */
+  spectators: SpectatorInfo[] = [];
+
   clock: ClockState;
   private initialClockMs: number;
 
@@ -83,6 +92,7 @@ export class Room {
     if (opts.password && opts.password.length > 0) {
       this.passwordHash = sha256(opts.password);
     }
+    this.name = (opts.name ?? '').trim().slice(0, ROOM_NAME_MAX);
     this.initialClockMs = opts.initialClockMs ?? DEFAULT_CLOCK_MS;
     this.clock = {
       remainingMs: { B: this.initialClockMs, W: this.initialClockMs },
@@ -94,7 +104,6 @@ export class Room {
     return this.passwordHash !== null;
   }
 
-  /** Verify password plain → hash. */
   verifyPassword(plain: string | undefined): boolean {
     if (!this.passwordHash) return true;
     if (!plain) return false;
@@ -105,10 +114,18 @@ export class Room {
     return (this.players.B ? 1 : 0) + (this.players.W ? 1 : 0);
   }
 
+  spectatorCount(): number {
+    return this.spectators.length;
+  }
+
   colorOfSocket(socketId: string): Color | null {
     if (this.players.B?.socketId === socketId) return 'B';
     if (this.players.W?.socketId === socketId) return 'W';
     return null;
+  }
+
+  spectatorIndex(socketId: string): number {
+    return this.spectators.findIndex((s) => s.socketId === socketId);
   }
 
   playerByToken(token: string): { color: Color; player: PlayerInfo } | null {
@@ -132,11 +149,34 @@ export class Room {
       this.players.W = info;
       this.status = 'playing';
       this.lastActivityAt = Date.now();
-      // Game thực sự bắt đầu — kích hoạt đồng hồ cho B (đi trước).
       this.clock.turnStartedAt = Date.now();
       return 'W';
     }
     throw new Error('Room is full');
+  }
+
+  /**
+   * Thêm spectator. Throw nếu full hoặc đã là player/spectator của phòng.
+   */
+  addSpectator(socketId: string, name: string): SpectatorInfo {
+    if (this.spectators.length >= MAX_SPECTATORS) {
+      throw new Error('SPECTATORS_FULL');
+    }
+    if (this.colorOfSocket(socketId)) throw new Error('ALREADY_PLAYER');
+    if (this.spectatorIndex(socketId) >= 0) throw new Error('ALREADY_SPECTATOR');
+    const info: SpectatorInfo = { socketId, name, joinedAt: Date.now() };
+    this.spectators.push(info);
+    this.lastActivityAt = Date.now();
+    return info;
+  }
+
+  removeSpectator(socketId: string): SpectatorInfo | null {
+    const idx = this.spectatorIndex(socketId);
+    if (idx < 0) return null;
+    const removed = this.spectators[idx];
+    this.spectators.splice(idx, 1);
+    this.lastActivityAt = Date.now();
+    return removed ?? null;
   }
 
   markDisconnect(socketId: string): Color | null {
@@ -184,7 +224,6 @@ export class Room {
     this.state = next;
     this.lastActivityAt = Date.now();
 
-    // Trừ thời gian đã dùng cho `color`, snapshot turn mới cho đối thủ.
     this.consumeClock(color);
     if (isGameOver(next)) {
       this.status = 'finished';
@@ -193,7 +232,6 @@ export class Room {
     return { ok: true, state: next, captures };
   }
 
-  /** Trừ ms đã dùng cho `color`, set turnStartedAt cho lượt tiếp theo. */
   private consumeClock(color: Color, now = Date.now()): void {
     if (this.clock.turnStartedAt !== null) {
       const used = now - this.clock.turnStartedAt;
@@ -202,10 +240,6 @@ export class Room {
     this.clock.turnStartedAt = now;
   }
 
-  /**
-   * Snapshot clock hiện tại — trả remainingMs đã trừ đi thời gian đang chạy.
-   * Dùng cho emit ra client.
-   */
   clockSnapshot(now = Date.now()): { B: number; W: number; turn: Color | null } {
     const snap = { ...this.clock.remainingMs };
     if (this.status === 'playing' && this.clock.turnStartedAt !== null) {
@@ -220,10 +254,6 @@ export class Room {
     };
   }
 
-  /**
-   * Kiểm tra timeout. Nếu bên đang đi hết giờ → bên kia thắng.
-   * Trả color hết giờ hoặc null. Phải gọi định kỳ từ cleanup loop.
-   */
   checkClockTimeout(now = Date.now()): Color | null {
     if (this.status !== 'playing' || this.clock.turnStartedAt === null) return null;
     const turn = this.state.turn;
@@ -264,11 +294,7 @@ export class Room {
     };
   }
 
-  /**
-   * Thêm chat message. Cap 100 msg + sanitize.
-   * Trả msg đã thêm hoặc null nếu reject (text rỗng/quá dài).
-   */
-  pushChat(from: Color | 'system', name: string, text: string): ChatMessage | null {
+  pushChat(from: Color | 'spectator' | 'system', name: string, text: string): ChatMessage | null {
     const trimmed = (text ?? '').trim();
     if (trimmed.length === 0 || trimmed.length > 200) return null;
     const msg: ChatMessage = {

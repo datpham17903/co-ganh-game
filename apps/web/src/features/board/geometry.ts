@@ -4,7 +4,8 @@ export const SVG_SIZE = 500;
 export const SVG_PADDING = 40;
 export const STEP = (SVG_SIZE - 2 * SVG_PADDING) / (BOARD_SIZE - 1);
 export const PIECE_RADIUS = 22;
-export const HIGHLIGHT_RADIUS = 10;
+/** Vòng highlight nước đi hợp lệ — to để mobile dễ tap (tap target ~44px). */
+export const HIGHLIGHT_RADIUS = 18;
 
 /** Toạ độ pixel của 1 điểm theo index. */
 export function pointXY(index: number): { x: number; y: number } {

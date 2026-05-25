@@ -24,7 +24,8 @@ test('public room: tạo phòng public → hiển thị trong list của ngườ
 
   // B phải thấy phòng của A trong list trong < 3s (broadcast)
   await expect(pageB.getByTestId(`public-room-${roomId}`)).toBeVisible({ timeout: 5000 });
-  await expect(pageB.getByText('Alice')).toBeVisible();
+  // Scope selector vào trong room item để tránh match input "Alice" mặc định
+  await expect(pageB.getByTestId(`public-room-${roomId}`)).toContainText('Alice');
 
   await ctxA.close();
   await ctxB.close();

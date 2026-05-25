@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { isGameOver, getWinner, type GameState } from '@co-ganh/engine';
 import { Board } from '../features/board/Board.js';
 import { useBoardInteraction } from '../features/board/useBoardInteraction.js';
 import { useGameStore } from '../stores/gameStore.js';
 import { useSocketStore } from '../stores/socketStore.js';
 import { useToastStore } from '../stores/toastStore.js';
-import { emit, getSocket, SocketEvents } from '../lib/socket.js';
+import {
+  emit,
+  getSocket,
+  SocketEvents,
+  type ClockState,
+  type SpectatorInfo,
+} from '../lib/socket.js';
 import { Modal } from '../components/Modal.js';
 import { RoomLobby } from '../features/room/RoomLobby.js';
 import { usePvPGame } from '../features/room/usePvPGame.js';
@@ -36,6 +42,9 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
   useBackgroundMusic();
   const { clock } = useClockSync();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isSpectatorMode = searchParams.get('spectate') === '1';
+
   const setSession = useSocketStore((s) => s.setSession);
   const sessionRoomId = useSocketStore((s) => s.roomId);
   const sessionToken = useSocketStore((s) => s.playerToken);
@@ -43,16 +52,23 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
   const reset = useGameStore((s) => s.resetGame);
   const setStateExternal = useGameStore((s) => s.setState);
   const myColor = useGameStore((s) => s.myColor);
+  const mode = useGameStore((s) => s.mode);
   const setInputLocked = useGameStore((s) => s.setInputLocked);
 
   const [opponentName, setOpponentName] = useState<string | null>(null);
   const [oppDisconnected, setOppDisconnected] = useState(false);
+  const [spectators, setSpectators] = useState<SpectatorInfo[]>([]);
+  const [playerNames, setPlayerNames] = useState<{ B: string | null; W: string | null }>({
+    B: null,
+    W: null,
+  });
+
+  const isSpectator = mode === 'spectate';
 
   const { state, selectedFrom, legalDestinations, handlePieceClick, handleCellClick } =
     useBoardInteraction();
   const { sendMove, resign } = usePvPGame();
 
-  // Giữ ref tới t để listener không stale closure khi đổi ngôn ngữ.
   const tRef = useRef(t);
   tRef.current = t;
 
@@ -60,16 +76,22 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
     const s = getSocket();
     if (!s.connected) s.connect();
 
-    // BUG FIX: gắn listener TRƯỚC reconnect/join. Trước đây listener gắn sau emit
-    // nên player thứ 2 có thể bỏ lỡ event game:start mà server emit ngay sau ack.
     const onStart = (data: {
       state: GameState;
       players: { B: { name: string } | null; W: { name: string } | null };
+      clock?: ClockState;
     }) => {
       setStateExternal(data.state);
+      setPlayerNames({
+        B: data.players.B?.name ?? null,
+        W: data.players.W?.name ?? null,
+      });
       const meColor = useGameStore.getState().myColor;
-      const opp = meColor === 'B' ? data.players.W : data.players.B;
-      if (opp) setOpponentName(opp.name);
+      const meMode = useGameStore.getState().mode;
+      if (meMode !== 'spectate') {
+        const opp = meColor === 'B' ? data.players.W : data.players.B;
+        if (opp) setOpponentName(opp.name);
+      }
       setOppDisconnected(false);
     };
     const onMove = (data: { state: GameState }) => {
@@ -89,6 +111,15 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
       setOppDisconnected(false);
       pushToast('success', tRef.current('pvp.oppRecToast'));
     };
+    const onSpecJoined = (d: { name: string }) => {
+      pushToast('info', tRef.current('pvp.specJoined', { name: d.name }));
+    };
+    const onSpecLeft = () => {
+      pushToast('info', tRef.current('pvp.specLeft'));
+    };
+    const onSpecsUpdate = (d: { spectators: SpectatorInfo[] }) => {
+      setSpectators(d.spectators);
+    };
     const onReject = (d: { reason: string }) => {
       pushToast('error', tRef.current('pvp.invalidMoveToast', { reason: d.reason }));
       setInputLocked(false);
@@ -101,11 +132,19 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
     s.on(SocketEvents.ROOM_OPPONENT_JOINED, onOppJoined);
     s.on(SocketEvents.ROOM_OPPONENT_LEFT, onOppLeft);
     s.on(SocketEvents.ROOM_OPPONENT_RECONNECTED, onOppRecon);
+    s.on(SocketEvents.ROOM_SPECTATOR_JOINED, onSpecJoined);
+    s.on(SocketEvents.ROOM_SPECTATOR_LEFT, onSpecLeft);
+    s.on(SocketEvents.ROOM_SPECTATORS_UPDATE, onSpecsUpdate);
     s.on(SocketEvents.GAME_MOVE_REJECTED, onReject);
     s.on(SocketEvents.GAME_OVER, onOver);
 
     let cancelled = false;
-    const tryReconnect = async () => {
+    const init = async () => {
+      // Spectator mode: store đã được setup ở lobby; không cần reconnect.
+      if (isSpectatorMode) {
+        reset({ mode: 'spectate' });
+        return;
+      }
       if (sessionRoomId === roomId && sessionToken) {
         try {
           const resp = await emit<ReconnectResponse>(s, SocketEvents.ROOM_RECONNECT, {
@@ -128,7 +167,7 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
         navigate('/play/pvp');
       }
     };
-    void tryReconnect();
+    void init();
 
     return () => {
       cancelled = true;
@@ -138,11 +177,15 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
       s.off(SocketEvents.ROOM_OPPONENT_JOINED, onOppJoined);
       s.off(SocketEvents.ROOM_OPPONENT_LEFT, onOppLeft);
       s.off(SocketEvents.ROOM_OPPONENT_RECONNECTED, onOppRecon);
+      s.off(SocketEvents.ROOM_SPECTATOR_JOINED, onSpecJoined);
+      s.off(SocketEvents.ROOM_SPECTATOR_LEFT, onSpecLeft);
+      s.off(SocketEvents.ROOM_SPECTATORS_UPDATE, onSpecsUpdate);
       s.off(SocketEvents.GAME_MOVE_REJECTED, onReject);
       s.off(SocketEvents.GAME_OVER, onOver);
     };
   }, [
     roomId,
+    isSpectatorMode,
     navigate,
     pushToast,
     reset,
@@ -158,6 +201,7 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
   const winner = getWinner(state);
 
   const onCellClickPvP = (idx: number): void => {
+    if (isSpectator) return;
     if (selectedFrom !== null && legalDestinations.includes(idx)) {
       const from = selectedFrom;
       const move = { from, to: idx };
@@ -184,6 +228,18 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
     pushToast('success', t('pvp.codeCopied'));
   };
 
+  // Names hiển thị: spectator dùng playerNames; player dùng me/opponent
+  const blackName = isSpectator
+    ? (playerNames.B ?? t('common.black'))
+    : myColor === 'B'
+      ? t('common.you')
+      : (opponentName ?? t('common.opponent'));
+  const whiteName = isSpectator
+    ? (playerNames.W ?? t('common.white'))
+    : myColor === 'W'
+      ? t('common.you')
+      : (opponentName ?? t('common.opponent'));
+
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-3">
       <div className="w-full max-w-2xl flex items-center justify-between">
@@ -198,17 +254,32 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
         >
           {t('pvp.codePrefix')}: {roomId}
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            void resign();
-            leaveRoom();
-          }}
-          className="text-sm underline"
-        >
-          {t('common.resign')}
-        </button>
+        {isSpectator ? (
+          <button type="button" onClick={leaveRoom} className="text-sm underline">
+            {t('common.leaveRoom')}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              void resign();
+              leaveRoom();
+            }}
+            className="text-sm underline"
+          >
+            {t('common.resign')}
+          </button>
+        )}
       </div>
+
+      {isSpectator && (
+        <div
+          className="w-full max-w-2xl mt-3 px-3 py-2 rounded bg-accent-2/15 text-text-primary text-sm"
+          data-testid="spectator-banner"
+        >
+          👁 {t('pvp.youAreSpectator')}
+        </div>
+      )}
 
       {oppDisconnected && (
         <div className="w-full max-w-2xl mt-3 px-3 py-2 rounded bg-yellow-100 text-text-primary text-sm">
@@ -221,8 +292,8 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
           color="B"
           count={blackPieces}
           active={state.turn === 'B' && !over}
-          isMe={myColor === 'B'}
-          name={myColor === 'B' ? t('common.you') : (opponentName ?? t('common.opponent'))}
+          isMe={!isSpectator && myColor === 'B'}
+          name={blackName}
           clock={clock}
           t={t}
         />
@@ -230,8 +301,8 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
           color="W"
           count={whitePieces}
           active={state.turn === 'W' && !over}
-          isMe={myColor === 'W'}
-          name={myColor === 'W' ? t('common.you') : (opponentName ?? t('common.opponent'))}
+          isMe={!isSpectator && myColor === 'W'}
+          name={whiteName}
           clock={clock}
           t={t}
         />
@@ -241,28 +312,40 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
         state={state}
         selectedFrom={selectedFrom}
         legalDestinations={legalDestinations}
-        onPieceClick={handlePieceClick}
+        onPieceClick={isSpectator ? () => undefined : handlePieceClick}
         onCellClick={onCellClickPvP}
       />
 
       <p className="mt-3 text-sm text-text-muted">
-        {!opponentName
-          ? t('pvp.waitingOpp')
-          : over
+        {isSpectator
+          ? over
             ? winner === 'draw'
               ? t('result.draw')
-              : winner === myColor
-                ? t('result.youWin')
-                : t('result.oppWin')
-            : state.turn === myColor
-              ? t('turn.you')
-              : t('turn.opponent')}
+              : winner === 'B'
+                ? t('result.blackWin')
+                : t('result.whiteWin')
+            : state.turn === 'B'
+              ? t('turn.localBlack')
+              : t('turn.localWhite')
+          : !opponentName
+            ? t('pvp.waitingOpp')
+            : over
+              ? winner === 'draw'
+                ? t('result.draw')
+                : winner === myColor
+                  ? t('result.youWin')
+                  : t('result.oppWin')
+              : state.turn === myColor
+                ? t('turn.you')
+                : t('turn.opponent')}
       </p>
 
-      <ChatPanel myColor={myColor} />
+      <SpectatorsList spectators={spectators} t={t} />
+
+      <ChatPanel myColor={isSpectator ? 'B' : myColor} />
 
       <Modal
-        open={over}
+        open={over && !isSpectator}
         onClose={leaveRoom}
         title={
           winner === 'draw'
@@ -291,6 +374,39 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
   );
 }
 
+function SpectatorsList({
+  spectators,
+  t,
+}: {
+  spectators: SpectatorInfo[];
+  t: ReturnType<typeof useT>;
+}) {
+  return (
+    <details
+      className="w-full max-w-2xl mt-4 px-3 rounded-lg border border-text-muted/30 bg-surface/30"
+      data-testid="spectators-list"
+    >
+      <summary className="text-sm cursor-pointer py-2">
+        👁 {t('pvp.spectators')} ({spectators.length})
+      </summary>
+      <div className="pb-3">
+        {spectators.length === 0 ? (
+          <p className="text-sm text-text-muted italic">{t('pvp.noSpectators')}</p>
+        ) : (
+          <ul className="text-sm space-y-1">
+            {spectators.map((s, i) => (
+              <li key={i} className="flex items-center gap-2">
+                <span className="text-text-muted">·</span>
+                <span>{s.name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </details>
+  );
+}
+
 function PlayerBadge({
   color,
   count,
@@ -305,7 +421,7 @@ function PlayerBadge({
   active: boolean;
   isMe: boolean;
   name: string;
-  clock: import('../lib/socket.js').ClockState | null;
+  clock: ClockState | null;
   t: ReturnType<typeof useT>;
 }) {
   return (

@@ -26,8 +26,6 @@ export function disconnectSocket(): void {
   }
 }
 
-/** Promisified emit-with-ack. Default timeout 20s để chịu được cold start
- * của free hosting (Render free tier có thể mất ~30s wake up). */
 export function emit<T = unknown>(
   s: Socket,
   event: string,
@@ -36,7 +34,6 @@ export function emit<T = unknown>(
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     if (!s.connected) {
-      // Try connecting first
       s.connect();
     }
     const timer = setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs);
@@ -53,6 +50,9 @@ export const SocketEvents = {
   ROOM_LEAVE: 'room:leave',
   ROOM_RECONNECT: 'room:reconnect',
   ROOM_LIST: 'room:list',
+  ROOM_SPECTATE: 'room:spectate',
+  LOBBY_SUBSCRIBE: 'lobby:subscribe',
+  LOBBY_UNSUBSCRIBE: 'lobby:unsubscribe',
   GAME_MOVE: 'game:move',
   GAME_RESIGN: 'game:resign',
   GAME_REMATCH: 'game:rematch',
@@ -60,6 +60,9 @@ export const SocketEvents = {
   ROOM_OPPONENT_JOINED: 'room:opponentJoined',
   ROOM_OPPONENT_LEFT: 'room:opponentLeft',
   ROOM_OPPONENT_RECONNECTED: 'room:opponentReconnected',
+  ROOM_SPECTATOR_JOINED: 'room:spectatorJoined',
+  ROOM_SPECTATOR_LEFT: 'room:spectatorLeft',
+  ROOM_SPECTATORS_UPDATE: 'room:spectatorsUpdate',
   ROOM_LIST_UPDATED: 'room:listUpdated',
   GAME_START: 'game:start',
   GAME_MOVE_APPLIED: 'game:moveApplied',
@@ -79,16 +82,28 @@ export interface ClockState {
 
 export interface PublicRoomInfo {
   id: string;
+  name: string;
   hostName: string;
   hasPassword: boolean;
   playerCount: number;
+  spectatorCount: number;
+  status: 'waiting' | 'playing';
   createdAt: number;
+}
+
+export interface ListPublicResult {
+  rooms: PublicRoomInfo[];
+  total: number;
 }
 
 export interface ChatMessage {
   id: number;
-  from: 'B' | 'W' | 'system';
+  from: 'B' | 'W' | 'spectator' | 'system';
   name: string;
   text: string;
   at: number;
+}
+
+export interface SpectatorInfo {
+  name: string;
 }

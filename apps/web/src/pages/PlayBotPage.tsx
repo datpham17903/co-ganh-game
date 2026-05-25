@@ -18,7 +18,6 @@ import { useT } from '../i18n/index.js';
 export function PlayBotPage() {
   const t = useT();
   useBackgroundMusic();
-  const [pickerOpen, setPickerOpen] = useState(true);
   const [difficulty, setDifficulty] = useState<BotDifficulty>(
     useSettingsStore.getState().botDifficulty,
   );
@@ -30,7 +29,6 @@ export function PlayBotPage() {
   const onStart = () => {
     useSettingsStore.getState().setBotDifficulty(difficulty);
     reset({ mode: 'bot', myColor });
-    setPickerOpen(false);
     setStarted(true);
     audio.arm();
   };
@@ -48,7 +46,7 @@ export function PlayBotPage() {
         <Link to="/" className="self-start text-sm underline">
           {t('common.back')}
         </Link>
-        <Modal open={pickerOpen} onClose={() => undefined} title={t('bot.title')}>
+        <Modal open={true} onClose={() => undefined} title={t('bot.title')}>
           <div className="space-y-4">
             <div>
               <p className="text-sm mb-2">{t('settings.botDifficulty')}</p>
