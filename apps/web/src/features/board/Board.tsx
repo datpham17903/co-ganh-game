@@ -1,7 +1,7 @@
 import { TOTAL_CELLS, type GameState } from '@co-ganh/engine';
 import { Piece } from './Piece.js';
 import { BoardOverlay } from './BoardOverlay.js';
-import { SVG_PADDING, SVG_SIZE, computeEdges, isDiagonalEdge, pointXY } from './geometry.js';
+import { SVG_SIZE, computeEdges, isDiagonalEdge, pointXY } from './geometry.js';
 
 interface BoardProps {
   state: GameState;
@@ -39,7 +39,16 @@ export function Board({
         </radialGradient>
       </defs>
 
-      <rect x={0} y={0} width={SVG_SIZE} height={SVG_SIZE} fill="#D9B074" rx={12} />
+      <rect
+        x={0}
+        y={0}
+        width={SVG_SIZE}
+        height={SVG_SIZE}
+        fill="#D9B074"
+        rx={12}
+        onClick={() => onCellClick(-1)}
+        style={{ cursor: 'default' }}
+      />
 
       <g stroke="#6B3F1D" strokeWidth={2} strokeLinecap="round">
         {EDGES.map((e) => {
@@ -96,16 +105,6 @@ export function Board({
           ) : null,
         )}
       </g>
-
-      {/* Click area cho việc bỏ chọn khi click vào nền */}
-      <rect
-        x={0}
-        y={0}
-        width={SVG_PADDING}
-        height={SVG_SIZE}
-        fill="transparent"
-        onClick={() => onCellClick(-1)}
-      />
     </svg>
   );
 }

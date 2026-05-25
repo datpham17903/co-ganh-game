@@ -6,10 +6,23 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          motion: ['framer-motion'],
+          socket: ['socket.io-client'],
+          router: ['react-router-dom'],
+          engine: ['@co-ganh/engine', '@co-ganh/bot'],
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.{ts,tsx}', 'src/**/*.test.{ts,tsx}'],
+    exclude: ['tests/e2e/**'],
   },
 });
