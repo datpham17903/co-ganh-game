@@ -9,6 +9,9 @@ import { useGameStore } from '../stores/gameStore.js';
 import { useSettingsStore } from '../stores/settingsStore.js';
 import { Modal } from '../components/Modal.js';
 import { useBotMove } from '../features/bot/useBotMove.js';
+import { MoveHistory } from '../features/game/MoveHistory.js';
+import { useGameSound } from '../features/game/useGameSound.js';
+import { audio } from '../lib/audio.js';
 
 export function PlayBotPage() {
   const [pickerOpen, setPickerOpen] = useState(true);
@@ -25,6 +28,7 @@ export function PlayBotPage() {
     reset({ mode: 'bot', myColor });
     setPickerOpen(false);
     setStarted(true);
+    audio.arm();
   };
 
   if (!started) {
@@ -118,6 +122,7 @@ function ActiveBotGame({
     config: { difficulty, maxThinkMs: difficulty === 'hard' ? 1500 : 500 },
     thinkingDelayMs: difficulty === 'easy' ? 300 : difficulty === 'medium' ? 500 : 800,
   });
+  useGameSound();
 
   // Khi user đổi màu trắng, bot (đen) đi trước — useBotMove handle.
   useEffect(() => {
@@ -174,6 +179,13 @@ function ActiveBotGame({
             ? 'Lượt bạn'
             : 'Bot đang nghĩ...'}
       </p>
+
+      <details className="w-full max-w-2xl mt-4 px-3">
+        <summary className="text-sm cursor-pointer">Lịch sử nước đi</summary>
+        <div className="mt-2">
+          <MoveHistory />
+        </div>
+      </details>
 
       <Modal
         open={over}

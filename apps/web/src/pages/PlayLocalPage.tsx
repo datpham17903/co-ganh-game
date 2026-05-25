@@ -5,12 +5,17 @@ import { useBoardInteraction } from '../features/board/useBoardInteraction.js';
 import { useGameStore } from '../stores/gameStore.js';
 import { Modal } from '../components/Modal.js';
 import { isGameOver, getWinner } from '@co-ganh/engine';
+import { MoveHistory } from '../features/game/MoveHistory.js';
+import { useGameSound } from '../features/game/useGameSound.js';
+import { audio } from '../lib/audio.js';
 
 export function PlayLocalPage() {
   const reset = useGameStore((s) => s.resetGame);
   useEffect(() => {
     reset({ mode: 'local' });
+    audio.arm();
   }, [reset]);
+  useGameSound();
 
   const { state, selectedFrom, legalDestinations, handlePieceClick, handleCellClick } =
     useBoardInteraction();
@@ -60,6 +65,13 @@ export function PlayLocalPage() {
             ? 'Lượt: Đen'
             : 'Lượt: Trắng'}
       </p>
+
+      <details className="w-full max-w-2xl mt-4 px-3">
+        <summary className="text-sm cursor-pointer">Lịch sử nước đi</summary>
+        <div className="mt-2">
+          <MoveHistory />
+        </div>
+      </details>
 
       <Modal
         open={over}
