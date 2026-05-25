@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Cài pnpm 11.3.0
 RUN corepack enable && corepack prepare pnpm@11.3.0 --activate
