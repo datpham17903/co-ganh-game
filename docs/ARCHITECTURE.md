@@ -35,6 +35,7 @@
 ```
 
 ### Nguyên lý
+
 1. **Engine dùng chung** cho cả FE và BE → đảm bảo logic luật giống hệt.
 2. **Server-authoritative cho PvP:** mọi nước đi phải được server chấp nhận trước khi UI hai bên cập nhật.
 3. **Local cho chế độ vs Bot:** không cần server, engine + bot chạy hoàn toàn trên client.
@@ -44,31 +45,34 @@
 ## 2. MODULE BREAKDOWN
 
 ### 2.1. `packages/engine` (Pure logic, no I/O)
-| File | Trách nhiệm | Export chính |
-|------|-------------|--------------|
-| `types.ts` | Định nghĩa types | `Color`, `Cell`, `GameState`, `Move`, `Capture` |
-| `board.ts` | Khởi tạo bàn, helper tọa độ | `createInitialBoard`, `index2coord`, `coord2index` |
-| `adjacency.ts` | Bảng kề precomputed | `ADJACENCY: number[][]` (25 phần tử) |
-| `moves.ts` | Sinh nước đi | `getLegalMoves`, `getAllLegalMoves` |
-| `rules.ts` | Xử lý gánh + vây | `processGanh`, `processVay` |
-| `game.ts` | Vòng lặp ván | `applyMove`, `isGameOver`, `getWinner`, `hashState` |
-| `index.ts` | Re-export public API | (barrel) |
+
+| File           | Trách nhiệm                 | Export chính                                        |
+| -------------- | --------------------------- | --------------------------------------------------- |
+| `types.ts`     | Định nghĩa types            | `Color`, `Cell`, `GameState`, `Move`, `Capture`     |
+| `board.ts`     | Khởi tạo bàn, helper tọa độ | `createInitialBoard`, `index2coord`, `coord2index`  |
+| `adjacency.ts` | Bảng kề precomputed         | `ADJACENCY: number[][]` (25 phần tử)                |
+| `moves.ts`     | Sinh nước đi                | `getLegalMoves`, `getAllLegalMoves`                 |
+| `rules.ts`     | Xử lý gánh + vây            | `processGanh`, `processVay`                         |
+| `game.ts`      | Vòng lặp ván                | `applyMove`, `isGameOver`, `getWinner`, `hashState` |
+| `index.ts`     | Re-export public API        | (barrel)                                            |
 
 **Yêu cầu:** Pure functions, không dùng `Math.random` (trừ test fixture), không I/O.
 
 ### 2.2. `packages/bot`
-| File | Trách nhiệm |
-|------|-------------|
-| `types.ts` | `BotDifficulty = 'easy' \| 'medium' \| 'hard'`, `BotConfig` |
-| `eval.ts` | Hàm đánh giá thế cờ (heuristic) |
-| `easy.ts` | Random hợp lệ, ưu tiên gánh nếu có |
-| `medium.ts` | Minimax depth 3 |
-| `hard.ts` | Minimax + alpha-beta + iterative deepening (depth 4-6) |
-| `index.ts` | `chooseMove(state, difficulty): Promise<Move>` |
+
+| File        | Trách nhiệm                                                 |
+| ----------- | ----------------------------------------------------------- |
+| `types.ts`  | `BotDifficulty = 'easy' \| 'medium' \| 'hard'`, `BotConfig` |
+| `eval.ts`   | Hàm đánh giá thế cờ (heuristic)                             |
+| `easy.ts`   | Random hợp lệ, ưu tiên gánh nếu có                          |
+| `medium.ts` | Minimax depth 3                                             |
+| `hard.ts`   | Minimax + alpha-beta + iterative deepening (depth 4-6)      |
+| `index.ts`  | `chooseMove(state, difficulty): Promise<Move>`              |
 
 Chi tiết: xem [BOT.md](BOT.md).
 
 ### 2.3. `apps/web` (Frontend)
+
 ```
 src/
 ├── components/         # UI primitives (Button, Modal, etc.)
@@ -109,6 +113,7 @@ src/
 ```
 
 ### 2.4. `apps/server` (Backend)
+
 ```
 src/
 ├── index.ts                       # Entry: Express + Socket.IO
@@ -129,6 +134,7 @@ src/
 ## 3. DATA FLOW
 
 ### 3.1. Chế độ vs BOT (local)
+
 ```
 1. User click quân ĐEN
    → Board.onPieceClick(from)
@@ -150,6 +156,7 @@ src/
 ```
 
 ### 3.2. Chế độ PvP (online)
+
 ```
 Player A (ĐEN)                  Server                    Player B (TRẮNG)
 ─────────────                  ──────                    ────────────────
@@ -165,6 +172,7 @@ Player A (ĐEN)                  Server                    Player B (TRẮNG)
 ```
 
 **Quan trọng:**
+
 - Client KHÔNG được trust nước đi của chính mình → phải đợi `moveApplied` từ server.
 - Optimistic UI (preview nước đi) chỉ là animation, không thay đổi state cho đến khi nhận xác nhận.
 - Nếu server reject → revert + show error.
@@ -176,33 +184,36 @@ Player A (ĐEN)                  Server                    Player B (TRẮNG)
 Chi tiết đầy đủ trong [MULTIPLAYER.md](MULTIPLAYER.md). Tóm tắt:
 
 ### Client → Server
-| Event | Payload | Mô tả |
-|-------|---------|-------|
-| `room:create` | `{ playerName }` | Tạo phòng mới, server trả `roomId` |
-| `room:join` | `{ roomId, playerName }` | Vào phòng |
-| `room:leave` | `{}` | Rời phòng |
-| `game:move` | `{ from, to }` | Gửi nước đi |
-| `game:resign` | `{}` | Đầu hàng |
-| `game:rematch` | `{}` | Yêu cầu đấu lại |
-| `chat:message` | `{ text }` | Tin nhắn (sau) |
+
+| Event          | Payload                  | Mô tả                              |
+| -------------- | ------------------------ | ---------------------------------- |
+| `room:create`  | `{ playerName }`         | Tạo phòng mới, server trả `roomId` |
+| `room:join`    | `{ roomId, playerName }` | Vào phòng                          |
+| `room:leave`   | `{}`                     | Rời phòng                          |
+| `game:move`    | `{ from, to }`           | Gửi nước đi                        |
+| `game:resign`  | `{}`                     | Đầu hàng                           |
+| `game:rematch` | `{}`                     | Yêu cầu đấu lại                    |
+| `chat:message` | `{ text }`               | Tin nhắn (sau)                     |
 
 ### Server → Client
-| Event | Payload | Mô tả |
-|-------|---------|-------|
-| `room:joined` | `{ roomId, color, opponent }` | Xác nhận vào phòng |
-| `room:opponentJoined` | `{ name }` | Đối thủ vào |
-| `room:opponentLeft` | `{}` | Đối thủ rời |
-| `game:start` | `{ state }` | Bắt đầu ván |
-| `game:moveApplied` | `{ state, move, captures }` | Nước đi hợp lệ |
-| `game:moveRejected` | `{ reason }` | Nước đi bị từ chối |
-| `game:over` | `{ winner, reason }` | Kết thúc |
-| `error` | `{ code, message }` | Lỗi chung |
+
+| Event                 | Payload                       | Mô tả              |
+| --------------------- | ----------------------------- | ------------------ |
+| `room:joined`         | `{ roomId, color, opponent }` | Xác nhận vào phòng |
+| `room:opponentJoined` | `{ name }`                    | Đối thủ vào        |
+| `room:opponentLeft`   | `{}`                          | Đối thủ rời        |
+| `game:start`          | `{ state }`                   | Bắt đầu ván        |
+| `game:moveApplied`    | `{ state, move, captures }`   | Nước đi hợp lệ     |
+| `game:moveRejected`   | `{ reason }`                  | Nước đi bị từ chối |
+| `game:over`           | `{ winner, reason }`          | Kết thúc           |
+| `error`               | `{ code, message }`           | Lỗi chung          |
 
 ---
 
 ## 5. STATE MANAGEMENT
 
 ### 5.1. Zustand stores
+
 ```typescript
 // gameStore.ts
 interface GameStore {
@@ -232,6 +243,7 @@ interface SettingsStore {
 ```
 
 ### 5.2. Chiến lược cho PvP
+
 - `gameStore` lưu state, KHÔNG xử lý logic gánh/vây ở client cho PvP.
 - Mọi mutation phải đến từ event `game:moveApplied` từ server.
 - Client chỉ tự xử lý `selectPiece` và preview nước đi hợp lệ (read-only validate bằng engine).
@@ -268,11 +280,13 @@ useEffect(() => {
 ## 7. RENDERING BÀN CỜ
 
 ### 7.1. SVG (chọn) vs Canvas
+
 - **SVG** dễ làm responsive, dễ animation với Framer Motion, dễ accessibility (mỗi quân là `<g>` có aria-label).
 - Canvas khó accessibility, không cần thiết với 25 điểm tĩnh.
 - → **Chọn SVG**.
 
 ### 7.2. Cấu trúc SVG
+
 ```jsx
 <svg viewBox="0 0 500 500">
   {/* Lưới đường */}
@@ -295,6 +309,7 @@ useEffect(() => {
 ```
 
 ### 7.3. Tọa độ pixel
+
 ```typescript
 const SIZE = 500;
 const PADDING = 40;
@@ -307,10 +322,12 @@ const STEP = (SIZE - 2 * PADDING) / 4;
 ## 8. PERSISTENCE
 
 ### 8.1. MVP (không tài khoản)
+
 - LocalStorage: cài đặt, tên hiển thị, preferred difficulty.
 - IndexedDB (sau): replay ván đấu.
 
 ### 8.2. Khi có tài khoản (Phase sau)
+
 - PostgreSQL: `users`, `matches`, `move_history`, `ratings`.
 - Redis: phiên đăng nhập + cache phòng đấu.
 
@@ -319,18 +336,20 @@ const STEP = (SIZE - 2 * PADDING) / 4;
 ## 9. DEPLOYMENT
 
 ### 9.1. MVP
+
 - **Frontend:** Vercel hoặc Netlify (build static)
 - **Backend:** Railway / Render / Fly.io (Node + Socket.IO)
 - **Domain:** chưa cần, dùng subdomain free
 - **HTTPS:** auto từ provider
 
 ### 9.2. Cấu hình
-| Env var | Mô tả | Default |
-|---------|-------|---------|
-| `PORT` | Cổng server | `3001` |
-| `CORS_ORIGIN` | Origin frontend | `http://localhost:5173` |
-| `MAX_ROOMS` | Số phòng tối đa | `1000` |
-| `ROOM_TTL_MIN` | TTL phòng không hoạt động | `60` |
+
+| Env var        | Mô tả                     | Default                 |
+| -------------- | ------------------------- | ----------------------- |
+| `PORT`         | Cổng server               | `3001`                  |
+| `CORS_ORIGIN`  | Origin frontend           | `http://localhost:5173` |
+| `MAX_ROOMS`    | Số phòng tối đa           | `1000`                  |
+| `ROOM_TTL_MIN` | TTL phòng không hoạt động | `60`                    |
 
 ---
 

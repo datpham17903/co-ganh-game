@@ -21,12 +21,12 @@
       └───────────────────────────────────┘
 ```
 
-| Tầng | Tool | Số test ước tính | Run time mục tiêu |
-|------|------|------------------|-------------------|
-| Unit | Vitest | 150-200 | < 5s |
-| Component | RTL + Vitest | 30-50 | < 10s |
-| Integration | Vitest + socket.io-client | 10-15 | < 15s |
-| E2E | Playwright + Browser MCP | 8-12 scenarios | < 60s |
+| Tầng        | Tool                      | Số test ước tính | Run time mục tiêu |
+| ----------- | ------------------------- | ---------------- | ----------------- |
+| Unit        | Vitest                    | 150-200          | < 5s              |
+| Component   | RTL + Vitest              | 30-50            | < 10s             |
+| Integration | Vitest + socket.io-client | 10-15            | < 15s             |
+| E2E         | Playwright + Browser MCP  | 8-12 scenarios   | < 60s             |
 
 ---
 
@@ -35,6 +35,7 @@
 File: `packages/engine/tests/`
 
 ### 2.1. `board.test.ts`
+
 - [ ] `createInitialBoard` trả về 25 phần tử
 - [ ] Tổng quân đen = 8, trắng = 8, trống = 9
 - [ ] Vị trí từng quân khớp layout RULES.md mục 1.3
@@ -43,6 +44,7 @@ File: `packages/engine/tests/`
 - [ ] Round-trip: `index2coord(coord2index(r,c))` = `(r,c)`
 
 ### 2.2. `adjacency.test.ts`
+
 - [ ] Điểm `(0,0)` (góc) có 3 điểm kề (phải, dưới, chéo)
 - [ ] Điểm `(2,2)` (giữa) có 8 điểm kề (đủ ngang dọc chéo)
 - [ ] Điểm `(1,0)` (KHÔNG có chéo) chỉ có 3 điểm kề (lên, xuống, phải)
@@ -50,12 +52,14 @@ File: `packages/engine/tests/`
 - [ ] Tính đối xứng: nếu `b ∈ ADJ[a]` thì `a ∈ ADJ[b]`
 
 ### 2.3. `moves.test.ts`
+
 - [ ] Đầu ván, đen có ≥ 3 nước hợp lệ (các quân ở hàng 1)
 - [ ] Đầu ván, trắng KHÔNG có nước (chưa đến lượt) — `getAllLegalMoves(state, 'W')` trả về rỗng nếu turn ≠ W. (Hoặc: hàm trả về tất cả nước của W bất kể lượt — chốt 1 cách rồi viết test)
 - [ ] Quân ở `(0,0)` đầu ván chỉ có thể đi xuống chéo nếu `(1,1)` trống
 - [ ] Quân không thể đi vào ô đã có quân khác
 
 ### 2.4. `rules.test.ts` - Gánh (8 test bắt buộc)
+
 - [ ] `gánh-ngang`: setup `W . W` ở hàng, B đi vào giữa → 2 W bị gánh
 - [ ] `gánh-dọc`: tương tự cột
 - [ ] `gánh-chéo`: tại điểm có đường chéo
@@ -66,6 +70,7 @@ File: `packages/engine/tests/`
 - [ ] `không-phản-ứng-dây-chuyền`: quân vừa đổi màu không kích gánh tiếp
 
 ### 2.5. `rules.test.ts` - Vây (5 test)
+
 - [ ] `vây-1-quân`: 1 W đơn lẻ bị 4 B bao quanh hết lối → đổi màu
 - [ ] `vây-nhóm`: nhóm 2-3 W liên kết bị bao kín
 - [ ] `vây-sau-gánh`: nước gánh tạo thế vây thêm
@@ -73,6 +78,7 @@ File: `packages/engine/tests/`
 - [ ] `không-vây-quân-mình`
 
 ### 2.6. `game.test.ts`
+
 - [ ] `applyMove` không mutate state cũ (deep equal trước/sau)
 - [ ] Tổng quân = 16 sau mỗi nước (trừ trường hợp ô trống ban đầu)
 - [ ] Đổi lượt sau mỗi nước
@@ -84,7 +90,9 @@ File: `packages/engine/tests/`
 - [ ] `hashState` deterministic + thay đổi khi state thay đổi
 
 ### 2.7. Property-based testing (bonus)
+
 Dùng `fast-check` để kiểm tra invariants:
+
 ```typescript
 test.prop([gameStateArbitrary])('apply random legal move keeps total = 16', (state) => {
   const moves = getAllLegalMoves(state);
@@ -102,6 +110,7 @@ test.prop([gameStateArbitrary])('apply random legal move keeps total = 16', (sta
 File: `packages/bot/tests/`
 
 ### 3.1. `eval.test.ts`
+
 - [ ] Win state cho `color` → `+INF`
 - [ ] Loss state → `-INF`
 - [ ] Draw → 0
@@ -109,17 +118,21 @@ File: `packages/bot/tests/`
 - [ ] State có lợi vật chất → eval dương
 
 ### 3.2. Test deterministic mỗi cấp độ
+
 Dùng seed cố định, snapshot move:
+
 ```typescript
 test('easy with seed 42 chooses move X at initial state', () => {
   const state = createInitialState();
   const move = chooseMove(state, { difficulty: 'easy', seed: 42 });
-  expect(move).toEqual({ from: 6, to: 11 });  // ví dụ
+  expect(move).toEqual({ from: 6, to: 11 }); // ví dụ
 });
 ```
 
 ### 3.3. `puzzles.test.ts` (20 puzzles)
+
 Mỗi puzzle có:
+
 ```json
 {
   "name": "fork-3-pieces",
@@ -128,12 +141,15 @@ Mỗi puzzle có:
   "difficulty_pass": ["medium", "hard"]
 }
 ```
+
 - Hard phải giải ≥ 18/20
 - Medium ≥ 12/20
 - Easy ≥ 5/20
 
 ### 3.4. Self-play benchmark (`pnpm bot:bench`)
+
 Script chạy N ván giữa 2 bot, in tỉ lệ thắng:
+
 ```
 Easy vs Random:    35W 5L 10D / 50  (thắng 70%)  ✓
 Medium vs Easy:    42W 3L 5D / 50   (thắng 84%)  ✓
@@ -142,16 +158,17 @@ Hard vs Hard:      18D / 30 (40% draw — cân bằng) ✓
 ```
 
 ### 3.5. Performance benchmark
+
 ```typescript
 test('hard chooses move under 1500ms (95p)', async () => {
   const samples = [];
   for (let i = 0; i < 20; i++) {
-    const state = randomMidGameState(seed=i);
+    const state = randomMidGameState((seed = i));
     const t = performance.now();
     await chooseMove(state, { difficulty: 'hard' });
     samples.push(performance.now() - t);
   }
-  samples.sort((a,b) => a-b);
+  samples.sort((a, b) => a - b);
   expect(samples[Math.floor(samples.length * 0.95)]).toBeLessThan(1500);
 });
 ```
@@ -163,26 +180,31 @@ test('hard chooses move under 1500ms (95p)', async () => {
 File: `apps/web/src/**/*.test.tsx`
 
 ### 4.1. `<Board />`
+
 - [ ] Render 16 quân khi state là initial
 - [ ] Click quân → onPieceClick được gọi với index đúng
 - [ ] Quân đang chọn có class `selected`
 - [ ] Legal destinations render đúng số lượng
 
 ### 4.2. `<Piece />`
+
 - [ ] Render màu đúng theo prop
 - [ ] Animation khi prop position thay đổi
 - [ ] Animation flip khi prop color thay đổi
 
 ### 4.3. `<MainMenu />`
+
 - [ ] 3 nút chính render
 - [ ] Click "Chơi với BOT" navigate đúng
 
 ### 4.4. `<RoomLobby />`
+
 - [ ] Click "Tạo phòng" gọi socket.emit('room:create')
 - [ ] Input mã phòng + click "Vào" gọi `room:join`
 - [ ] Show lỗi nếu mã không tồn tại
 
 ### 4.5. `useBoardInteraction`
+
 - [ ] State machine đúng theo FLOW.md 5.1
 - [ ] Click quân địch ở IDLE → vẫn IDLE
 - [ ] Click ô không hợp lệ ở PIECE_SELECTED → IDLE
@@ -194,6 +216,7 @@ File: `apps/web/src/**/*.test.tsx`
 File: `apps/server/tests/`
 
 ### 5.1. RoomManager
+
 - [ ] Tạo phòng trả mã 6 ký tự
 - [ ] Mã không trùng (mock 1000 phòng)
 - [ ] Join phòng tồn tại OK
@@ -202,27 +225,29 @@ File: `apps/server/tests/`
 - [ ] Cleanup expired sau TTL
 
 ### 5.2. Full game flow (2 socket clients)
+
 ```typescript
 test('full PvP game ends when one side has 0 pieces', async () => {
   const a = io(serverUrl);
   const b = io(serverUrl);
-  
+
   const { roomId } = await emit(a, 'room:create', { playerName: 'A' });
   await emit(b, 'room:join', { roomId, playerName: 'B' });
-  
+
   // Mô phỏng các nước đi đến endgame...
   for (const move of scriptedMoves) {
     const sender = move.color === 'B' ? a : b;
     await emit(sender, 'game:move', move);
     await once(b, 'game:moveApplied');
   }
-  
+
   const over = await once(a, 'game:over');
   expect(over.winner).toBe('B');
 });
 ```
 
 ### 5.3. Edge cases
+
 - [ ] Move từ socket không trong phòng → error NO_ROOM
 - [ ] Move không phải lượt mình → error NOT_YOUR_TURN
 - [ ] Move không hợp lệ → error INVALID_MOVE
@@ -237,6 +262,7 @@ test('full PvP game ends when one side has 0 pieces', async () => {
 > Browser MCP cho phép điều khiển Chrome thật từ session. Dùng để verify ván đấu chạy đúng trên UI thật, không chỉ test logic.
 
 ### 6.1. Cài đặt Browser MCP
+
 - Dùng `@browsermcp/mcp` (Browser MCP) hoặc Playwright MCP.
 - Add vào MCP config: `mcp.json` với server browser MCP.
 - Test connection: `list_tools` thấy `browser_navigate`, `browser_click`, `browser_screenshot`.
@@ -244,6 +270,7 @@ test('full PvP game ends when one side has 0 pieces', async () => {
 ### 6.2. Scenarios bắt buộc
 
 #### Scenario 1: Smoke test - vào trang chính
+
 ```
 1. browser_navigate → http://localhost:5173
 2. browser_screenshot → so sánh với baseline
@@ -252,6 +279,7 @@ test('full PvP game ends when one side has 0 pieces', async () => {
 ```
 
 #### Scenario 2: Chơi vs bot Dễ - 5 nước đầu
+
 ```
 1. navigate → /
 2. click "Chơi với BOT"
@@ -268,6 +296,7 @@ test('full PvP game ends when one side has 0 pieces', async () => {
 ```
 
 #### Scenario 3: PvP đầy đủ với 2 tab
+
 ```
 1. browser_open_tab tab1
 2. tab1: navigate → /play/pvp
@@ -288,6 +317,7 @@ test('full PvP game ends when one side has 0 pieces', async () => {
 ```
 
 #### Scenario 4: Reconnect
+
 ```
 1. setup ván PvP như scenario 3
 2. tab1: đi 2 nước
@@ -299,16 +329,20 @@ test('full PvP game ends when one side has 0 pieces', async () => {
 ```
 
 #### Scenario 5: Responsive
+
 Chụp screenshot ở 4 viewport, so sánh layout:
+
 ```
 - 375x667 (iPhone SE)
 - 414x896 (iPhone 11)
 - 768x1024 (iPad)
 - 1440x900 (desktop)
 ```
+
 Assert: bàn cờ không overflow, tất cả button click được.
 
 #### Scenario 6: Accessibility
+
 ```
 1. navigate → /
 2. browser_run_axe (nếu MCP hỗ trợ) hoặc inject axe-core và run
@@ -316,6 +350,7 @@ Assert: bàn cờ không overflow, tất cả button click được.
 ```
 
 #### Scenario 7: Đầu hàng
+
 ```
 1. setup ván vs bot
 2. đi 1 nước
@@ -327,7 +362,9 @@ Assert: bàn cờ không overflow, tất cả button click được.
 ```
 
 #### Scenario 8: Hết quân
+
 Setup ván với scripted moves dẫn đến endgame trong < 30 nước:
+
 ```
 1. seedGame với scripted moves
 2. đi đến nước cuối
@@ -336,6 +373,7 @@ Setup ván với scripted moves dẫn đến endgame trong < 30 nước:
 ```
 
 ### 6.3. Cấu trúc file
+
 ```
 apps/web/tests/e2e/
 ├── smoke.spec.ts
@@ -350,6 +388,7 @@ apps/web/tests/e2e/
 ```
 
 ### 6.4. Cách chạy
+
 ```bash
 # Local
 pnpm e2e
@@ -359,7 +398,9 @@ pnpm e2e --reporter=html
 ```
 
 ### 6.5. Browser MCP usage trong agent QA
+
 QA agent sẽ:
+
 1. Chạy `pnpm dev` (foreground task hoặc background)
 2. Đợi server up (poll /health)
 3. Gọi Browser MCP tool theo từng scenario
@@ -383,7 +424,7 @@ File: `tests/fixtures/scripted-games.ts`
 
 ```typescript
 export const SHORT_GAME_BLACK_WIN: Move[] = [
-  { from: 6,  to: 7,  color: 'B' },
+  { from: 6, to: 7, color: 'B' },
   { from: 16, to: 12, color: 'W' },
   // ... 20-30 nước dẫn đến đen thắng
 ];

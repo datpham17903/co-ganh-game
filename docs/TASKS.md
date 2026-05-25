@@ -33,9 +33,11 @@
 ## PHASE 0 — SETUP (1 subagent)
 
 ### `setup-agent`
+
 **Scope:** Khởi tạo monorepo, công cụ phát triển.
 
 **Tasks:**
+
 - [ ] Tạo monorepo với pnpm workspace (`pnpm-workspace.yaml`)
 - [ ] Tạo cấu trúc thư mục theo `ARCHITECTURE.md` mục 2
 - [ ] Setup TypeScript shared config (`tsconfig.base.json`)
@@ -53,6 +55,7 @@
 **Deliverable:** Monorepo build/typecheck/test pass với placeholder code.
 
 **Definition of Done:**
+
 - `pnpm dev` khởi cả frontend và backend cùng lúc
 - Hot reload hoạt động
 - Lint chạy được, format on save hoạt động
@@ -62,11 +65,13 @@
 ## PHASE 1 — ENGINE (1 subagent)
 
 ### `engine-agent`
+
 **Scope:** Logic luật cờ gánh đầy đủ trong `packages/engine`.
 
 **Pre-requisites:** Đọc kỹ `RULES.md` toàn bộ.
 
 **Tasks:**
+
 - [ ] Định nghĩa types trong `types.ts` theo `RULES.md` mục 7
 - [ ] Implement `board.ts`:
   - `createInitialBoard()` đúng layout
@@ -103,6 +108,7 @@
 **Deliverable:** `packages/engine` build pass, test pass 100%, coverage ≥ 95%.
 
 **Definition of Done:**
+
 - Tất cả test trong `TESTING.md` mục 2 pass
 - Có thể import vào cả frontend và backend không lỗi
 - `npm pack` tạo được package hợp lệ
@@ -112,11 +118,13 @@
 ## PHASE 2 — UI CƠ BẢN (2 subagents song song)
 
 ### `ui-board-agent`
+
 **Scope:** Component bàn cờ + tương tác cơ bản.
 
 **Pre-requisites:** `engine-agent` xong, đọc `UI_UX.md` + `FLOW.md`.
 
 **Tasks:**
+
 - [ ] Component `<Board />` SVG:
   - Vẽ lưới 5×5 với đường chéo đúng vị trí
   - Background gỗ + texture
@@ -141,11 +149,13 @@
 **Deliverable:** Bàn cờ render đẹp, click chọn quân hiện highlight đúng.
 
 ### `ui-shell-agent`
+
 **Scope:** Khung trang, navigation, menu chính, settings, không bao gồm bàn cờ.
 
 **Pre-requisites:** Đọc `UI_UX.md`.
 
 **Tasks:**
+
 - [ ] Setup React Router với các route trong `FLOW.md` mục 1
 - [ ] Component `<MainMenu />` (trang chủ)
 - [ ] Component `<HowToPlayPage />` (tĩnh, có ảnh minh họa luật)
@@ -169,11 +179,13 @@
 ## PHASE 3 — BOT (1 subagent)
 
 ### `bot-agent`
+
 **Scope:** AI bot 3 mức độ trong `packages/bot`.
 
 **Pre-requisites:** `engine-agent` xong, đọc `BOT.md` toàn bộ.
 
 **Tasks:**
+
 - [ ] `prng.ts`: Mulberry32 seeded PRNG
 - [ ] `eval.ts`: Hàm đánh giá theo BOT.md mục 2
 - [ ] `eval-config.ts`: Trọng số (ban đầu dùng giá trị trong BOT.md, tinh chỉnh sau)
@@ -197,6 +209,7 @@
   - Easy < 100ms, Medium < 500ms, Hard 95p < 1500ms
 
 **Tích hợp UI (sau khi bot hoàn thiện):**
+
 - [ ] `apps/web/src/features/bot/botWorker.ts`: Web Worker
 - [ ] `useBotMove` hook: trigger bot khi đến lượt + thinking delay
 - [ ] Trang `/play/bot` với chọn độ khó
@@ -204,6 +217,7 @@
 **Deliverable:** Có thể chơi với bot 3 mức độ qua UI, bot pass benchmark.
 
 **Definition of Done:**
+
 - Bot không bao giờ chọn nước không hợp lệ
 - Bot không freeze UI (chạy trong worker)
 - Self-play benchmark đạt yêu cầu
@@ -214,11 +228,13 @@
 ## PHASE 4 — MULTIPLAYER (2 subagents tuần tự)
 
 ### `mp-server-agent`
+
 **Scope:** Backend Socket.IO + room management.
 
 **Pre-requisites:** `engine-agent` xong, đọc `MULTIPLAYER.md` toàn bộ.
 
 **Tasks:**
+
 - [ ] Setup Express + Socket.IO trong `apps/server`
 - [ ] `utils/codes.ts`: sinh mã phòng 6 ký tự (MULTIPLAYER.md 6.3)
 - [ ] `rooms/Room.ts`: class Room theo MULTIPLAYER.md 1.3
@@ -241,11 +257,13 @@
 **Deliverable:** Server chạy được, 2 client có thể chơi 1 ván trọn vẹn.
 
 ### `mp-client-agent`
+
 **Scope:** Frontend tích hợp socket + sảnh PvP.
 
 **Pre-requisites:** `mp-server-agent` xong + `ui-board-agent` xong.
 
 **Tasks:**
+
 - [ ] `lib/socket.ts`: singleton client với reconnection logic
 - [ ] `stores/socketStore.ts`: Zustand cho connection state
 - [ ] `features/room/RoomLobby.tsx`: form tạo / vào phòng
@@ -268,11 +286,13 @@
 ## PHASE 5 — POLISH (1 subagent)
 
 ### `polish-agent`
+
 **Scope:** Animation, âm thanh, responsive, end-game flow.
 
 **Pre-requisites:** Phase 2-4 xong.
 
 **Tasks:**
+
 - [ ] **Animation:**
   - Quân di chuyển smooth (đã có từ board-agent, refine)
   - Flip 3D khi gánh/vây (Framer Motion variants)
@@ -317,11 +337,13 @@
 ## PHASE 6 — QA & DEPLOY (1 subagent)
 
 ### `qa-agent`
+
 **Scope:** Kiểm thử end-to-end + deploy.
 
 **Pre-requisites:** Tất cả phase trước xong.
 
 **Tasks:**
+
 - [ ] **Test plan từ TESTING.md:**
   - Chạy toàn bộ unit test, fix nếu fail
   - Viết E2E test scenarios chính (Playwright + Browser MCP)
@@ -361,17 +383,17 @@
 
 ## BẢNG TRẠNG THÁI TỔNG HỢP
 
-| Phase | Subagent | Trạng thái | Ngày bắt đầu | Ngày xong |
-|-------|----------|-----------|--------------|-----------|
-| P0 | setup-agent | ⬜ Chưa bắt đầu | - | - |
-| P1 | engine-agent | ⬜ Chưa bắt đầu | - | - |
-| P2 | ui-board-agent | ⬜ Chưa bắt đầu | - | - |
-| P2 | ui-shell-agent | ⬜ Chưa bắt đầu | - | - |
-| P3 | bot-agent | ⬜ Chưa bắt đầu | - | - |
-| P4 | mp-server-agent | ⬜ Chưa bắt đầu | - | - |
-| P4 | mp-client-agent | ⬜ Chưa bắt đầu | - | - |
-| P5 | polish-agent | ⬜ Chưa bắt đầu | - | - |
-| P6 | qa-agent | ⬜ Chưa bắt đầu | - | - |
+| Phase | Subagent        | Trạng thái      | Ngày bắt đầu | Ngày xong |
+| ----- | --------------- | --------------- | ------------ | --------- |
+| P0    | setup-agent     | ⬜ Chưa bắt đầu | -            | -         |
+| P1    | engine-agent    | ⬜ Chưa bắt đầu | -            | -         |
+| P2    | ui-board-agent  | ⬜ Chưa bắt đầu | -            | -         |
+| P2    | ui-shell-agent  | ⬜ Chưa bắt đầu | -            | -         |
+| P3    | bot-agent       | ⬜ Chưa bắt đầu | -            | -         |
+| P4    | mp-server-agent | ⬜ Chưa bắt đầu | -            | -         |
+| P4    | mp-client-agent | ⬜ Chưa bắt đầu | -            | -         |
+| P5    | polish-agent    | ⬜ Chưa bắt đầu | -            | -         |
+| P6    | qa-agent        | ⬜ Chưa bắt đầu | -            | -         |
 
 **Trạng thái:** ⬜ chưa bắt đầu / 🟡 đang làm / ✅ hoàn thành / ❌ blocked
 
@@ -398,6 +420,7 @@ P3 bot      P2 shell        │
 ```
 
 **Có thể song song:**
+
 - P2 board ∥ P2 shell (sau P1)
 - P3 bot ∥ P4 server (sau P1, không phụ thuộc UI)
 
@@ -406,6 +429,7 @@ P3 bot      P2 shell        │
 ## KHI SUBAGENT BÁO XONG
 
 Main agent kiểm tra:
+
 1. Đọc code subagent đã viết
 2. Chạy test xem có pass không
 3. Nếu task có UI: chạy `pnpm dev` và verify bằng Browser MCP
