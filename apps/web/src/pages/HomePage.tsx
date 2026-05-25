@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { SettingsModal } from '../components/SettingsModal.js';
+import { BOT_ONLY } from '../config.js';
 
 export function HomePage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -27,7 +28,7 @@ export function HomePage() {
 
         <nav className="flex flex-col gap-3 w-full max-w-xs">
           <MenuButton to="/play/bot" label="▶  CHƠI VỚI BOT" />
-          <MenuButton to="/play/pvp" label="◎  CHƠI ONLINE" />
+          {!BOT_ONLY && <MenuButton to="/play/pvp" label="◎  CHƠI ONLINE" />}
           <MenuButton to="/play/local" label="⚎  CHƠI 2 NGƯỜI" />
           <Link
             to="/rules"
@@ -35,6 +36,11 @@ export function HomePage() {
           >
             📖 Hướng dẫn luật chơi
           </Link>
+          {BOT_ONLY && (
+            <p className="text-xs text-text-muted text-center mt-2">
+              Bản demo: chế độ Online tạm tắt (cần server riêng)
+            </p>
+          )}
         </nav>
       </main>
 
