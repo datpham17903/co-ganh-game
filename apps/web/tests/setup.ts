@@ -32,3 +32,13 @@ if (
     writable: false,
   });
 }
+
+if (
+  typeof globalThis.sessionStorage === 'undefined' ||
+  typeof globalThis.sessionStorage.clear !== 'function'
+) {
+  Object.defineProperty(globalThis, 'sessionStorage', {
+    value: new MemoryStorage(),
+    writable: false,
+  });
+}
