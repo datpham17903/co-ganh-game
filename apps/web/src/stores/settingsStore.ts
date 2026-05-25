@@ -7,13 +7,11 @@ export type Language = 'vi' | 'en';
 
 interface SettingsState {
   soundEnabled: boolean;
-  musicEnabled: boolean;
   theme: Theme;
   language: Language;
   botDifficulty: BotDifficulty;
   playerName: string;
   toggleSound: () => void;
-  toggleMusic: () => void;
   setTheme: (t: Theme) => void;
   setLanguage: (l: Language) => void;
   setBotDifficulty: (d: BotDifficulty) => void;
@@ -24,13 +22,11 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       soundEnabled: true,
-      musicEnabled: true,
       theme: 'light',
       language: 'vi',
       botDifficulty: 'medium',
       playerName: '',
       toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
-      toggleMusic: () => set((s) => ({ musicEnabled: !s.musicEnabled })),
       setTheme: (theme) => set({ theme }),
       setLanguage: (language) => set({ language }),
       setBotDifficulty: (botDifficulty) => set({ botDifficulty }),

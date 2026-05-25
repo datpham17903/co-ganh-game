@@ -8,7 +8,6 @@ import { isGameOver, getWinner } from '@co-ganh/engine';
 import { MoveHistory } from '../features/game/MoveHistory.js';
 import { useGameSound } from '../features/game/useGameSound.js';
 import { audio } from '../lib/audio.js';
-import { useBackgroundMusic } from '../hooks/useBackgroundMusic.js';
 import { useT } from '../i18n/index.js';
 
 export function PlayLocalPage() {
@@ -19,7 +18,6 @@ export function PlayLocalPage() {
     audio.arm();
   }, [reset]);
   useGameSound();
-  useBackgroundMusic();
 
   const { state, selectedFrom, legalDestinations, handlePieceClick, handleCellClick } =
     useBoardInteraction();

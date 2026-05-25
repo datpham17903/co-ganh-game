@@ -12,8 +12,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const t = useT();
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const toggleSound = useSettingsStore((s) => s.toggleSound);
-  const musicEnabled = useSettingsStore((s) => s.musicEnabled);
-  const toggleMusic = useSettingsStore((s) => s.toggleMusic);
   const theme = useSettingsStore((s) => s.theme);
   const setTheme = useSettingsStore((s) => s.setTheme);
   const language = useSettingsStore((s) => s.language);
@@ -31,16 +29,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             offLabel={t('settings.off')}
             onClick={toggleSound}
             testId="toggle-sound"
-          />
-        </Section>
-
-        <Section label={t('settings.music')}>
-          <Toggle
-            on={musicEnabled}
-            onLabel={t('settings.on')}
-            offLabel={t('settings.off')}
-            onClick={toggleMusic}
-            testId="toggle-music"
           />
         </Section>
 

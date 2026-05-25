@@ -18,7 +18,6 @@ import { RoomLobby } from '../features/room/RoomLobby.js';
 import { usePvPGame } from '../features/room/usePvPGame.js';
 import { ChatPanel } from '../features/room/ChatPanel.js';
 import { ClockDisplay } from '../features/room/ClockDisplay.js';
-import { useBackgroundMusic } from '../hooks/useBackgroundMusic.js';
 import { useClockSync } from '../hooks/useClockSync.js';
 import { useT } from '../i18n/index.js';
 
@@ -39,7 +38,6 @@ interface ReconnectResponse {
 
 function PvPGameRoom({ roomId }: { roomId: string }) {
   const t = useT();
-  useBackgroundMusic();
   const { clock } = useClockSync();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
