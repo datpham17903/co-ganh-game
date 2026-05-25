@@ -62,13 +62,50 @@ pnpm exec playwright install chromium
 pnpm e2e
 ```
 
-## Deploy
+## Deploy production
 
-- **Frontend:** Vercel/Netlify (static build từ `apps/web/dist`)
-- **Backend:** Railway/Render/Fly.io (cần WebSocket, Vercel free tier không hỗ trợ)
-- **Env:**
-  - Frontend: `VITE_SERVER_URL=https://your-backend.example.com`
-  - Backend: `PORT=3001`, `CORS_ORIGIN=https://your-frontend.example.com`
+Stack: **Vercel** (frontend) + **Render** (backend Socket.IO).
+
+### 1. Backend trên Render (~5 phút)
+
+Repo này có sẵn `render.yaml` blueprint.
+
+1. Vào https://dashboard.render.com → **New** → **Blueprint** → connect repo `co-ganh-game`.
+2. Render tự đọc `render.yaml`, tạo service `co-ganh-server` (Docker, plan free, region Singapore).
+3. Đợi build + deploy (~3-5 phút). Lấy URL, ví dụ: `https://co-ganh-server.onrender.com`.
+4. Test: mở `https://co-ganh-server.onrender.com/health` → trả `{"ok":true,"rooms":0}`.
+
+> Free tier của Render sleep sau 15 phút không có request, lần đầu vào sẽ cold start ~30s.
+
+### 2. Frontend trên Vercel (~3 phút)
+
+Repo có sẵn `vercel.json` config monorepo.
+
+1. Vào https://vercel.com/new → import repo `co-ganh-game`.
+2. **Framework preset:** Other (vercel.json đã chỉ build command).
+3. **Root Directory:** giữ nguyên repo root (KHÔNG đổi sang `apps/web`).
+4. **Environment Variables** (Settings → Environment Variables):
+   - `VITE_SERVER_URL` = `https://co-ganh-server.onrender.com` (URL từ bước 1)
+5. Deploy. Lấy URL Vercel, ví dụ: `https://co-ganh-game.vercel.app`.
+
+### 3. Siết CORS
+
+Quay lại Render → service `co-ganh-server` → **Environment**:
+
+- Đổi `CORS_ORIGIN` từ `*` thành URL Vercel ở trên.
+- Click **Save Changes** → service tự redeploy.
+
+### Local override
+
+```
+# apps/web/.env.local
+VITE_SERVER_URL=http://localhost:3001
+```
+
+### Bot-only mode (deploy không cần backend)
+
+Nếu chỉ muốn demo bot/local, set `VITE_BOT_ONLY=true` khi build — nút "Chơi Online"
+sẽ ẩn và route `/play/pvp` redirect về home.
 
 ## Tài liệu thiết kế
 

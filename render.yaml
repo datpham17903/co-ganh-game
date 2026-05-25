@@ -1,0 +1,33 @@
+# Render blueprint — deploy backend (Socket.IO) cho Cờ Gánh Online.
+# Hướng dẫn: vào https://dashboard.render.com → New → Blueprint → Connect repo này.
+#
+# Sau khi service up, copy URL (https://co-ganh-server.onrender.com) và set
+# vào Vercel project settings: VITE_SERVER_URL=<url>.
+# Sau đó update biến CORS_ORIGIN bên dưới về URL Vercel để siết lại.
+services:
+  - type: web
+    name: co-ganh-server
+    runtime: docker
+    repo: https://github.com/datpham17903/co-ganh-game
+    branch: master
+    dockerfilePath: ./apps/server/Dockerfile
+    dockerContext: .
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: '3001'
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        # Tạm '*' để dễ test. Sau khi có domain Vercel, đổi sang URL chính xác.
+        value: '*'
+      - key: MAX_ROOMS
+        value: '1000'
+      - key: ROOM_TTL_MS
+        value: '600000'
+      - key: RECONNECT_TTL_MS
+        value: '60000'
+      - key: LOG_LEVEL
+        value: info
