@@ -7,6 +7,8 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html'],
       include: ['src/**/*.ts'],
+      // Pure re-exports / type-only files: không có code thực thi để cover.
+      exclude: ['src/index.ts', 'src/types.ts'],
       thresholds: {
         lines: 95,
         functions: 95,
