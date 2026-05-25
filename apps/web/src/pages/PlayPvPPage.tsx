@@ -124,6 +124,11 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
       setSpectators(d.spectators);
     };
     const onReject = (d: { reason: string }) => {
+      // NO_ROOM thường gặp khi socket vừa reconnect — auto re-bind tới room
+      // qua ROOM_RECONNECT thay vì spam toast cho user.
+      if (d.reason === 'NO_ROOM') {
+        return;
+      }
       pushToast('error', tRef.current('pvp.invalidMoveToast', { reason: d.reason }));
       setInputLocked(false);
     };
@@ -142,6 +147,17 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
     s.on(SocketEvents.GAME_OVER, onOver);
 
     let cancelled = false;
+    const reattach = async () => {
+      if (isSpectatorMode || !sessionToken) return;
+      try {
+        await emit<ReconnectResponse>(s, SocketEvents.ROOM_RECONNECT, {
+          roomId,
+          playerToken: sessionToken,
+        });
+      } catch {
+        /* sẽ retry ở reconnect tiếp theo */
+      }
+    };
     const init = async () => {
       // Spectator mode: store đã được setup ở lobby; không cần reconnect.
       if (isSpectatorMode) {
@@ -172,6 +188,14 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
     };
     void init();
 
+    // Tự re-bind tới room mỗi lần socket reconnect (Render cold-start, network
+    // blip). Không cần navigate — chỉ cần server biết socket.id mới này thuộc
+    // phòng nào để các action sau đó (move/chat) không trả NO_ROOM.
+    const onReconnect = () => {
+      void reattach();
+    };
+    s.io.on('reconnect', onReconnect);
+
     return () => {
       cancelled = true;
       s.off(SocketEvents.GAME_START, onStart);
@@ -185,6 +209,7 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
       s.off(SocketEvents.ROOM_SPECTATORS_UPDATE, onSpecsUpdate);
       s.off(SocketEvents.GAME_MOVE_REJECTED, onReject);
       s.off(SocketEvents.GAME_OVER, onOver);
+      s.io.off('reconnect', onReconnect);
     };
   }, [
     roomId,
@@ -233,7 +258,12 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
       const move = { from, to: idx };
       setInputLocked(true);
       void sendMove(move).catch((e) => {
-        pushToast('error', e instanceof Error ? e.message : t('pvp.sendFail'));
+        // NO_ROOM xảy ra khi vừa reconnect — bỏ qua, server sẽ re-bind
+        // qua reconnect listener và user có thể click lại sau ~1s.
+        const msg = e instanceof Error ? e.message : 'UNKNOWN';
+        if (msg !== 'NO_ROOM') {
+          pushToast('error', msg === 'UNKNOWN' ? t('pvp.sendFail') : msg);
+        }
         setInputLocked(false);
       });
       useGameStore.setState({ selectedFrom: null, legalDestinations: [] });

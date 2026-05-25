@@ -54,7 +54,10 @@ export function ChatPanel({ myColor }: ChatPanelProps) {
       );
       if (!resp.ok) {
         if (resp.error === 'RATE_LIMIT') pushToast('warning', t('chat.rateLimit'));
-        else pushToast('error', resp.error ?? 'CHAT_FAIL');
+        else if (resp.error === 'NO_ROOM') {
+          // Socket vừa reconnect — silently bỏ qua, để PlayPvPPage tự re-bind
+          // tới room. User có thể gửi lại sau 1-2s.
+        } else pushToast('error', resp.error ?? 'CHAT_FAIL');
         return;
       }
       setText('');
