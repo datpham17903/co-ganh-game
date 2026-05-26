@@ -115,12 +115,12 @@ describe('RoomManager — public list + password', () => {
     expect(room.spectatorCount()).toBe(1);
   });
 
-  it('spectate: phòng KHÔNG public → NOT_PUBLIC', () => {
+  it('spectate: phòng private vẫn cho spectate khi có mã (không cần password)', () => {
     const m = new RoomManager();
-    const { room } = m.create('s1', 'A', { isPublic: false });
+    const { room } = m.create('s1', 'A', { isPublic: false, password: 'secret' });
     const r = m.spectate(room.id, 's2', 'Watcher');
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toBe('NOT_PUBLIC');
+    expect(r.ok).toBe(true);
+    expect(room.spectatorCount()).toBe(1);
   });
 
   it('spectate: player đang trong phòng đó → ALREADY_PLAYER', () => {

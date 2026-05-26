@@ -50,6 +50,7 @@ export const SocketEvents = {
   ROOM_LEAVE: 'room:leave',
   ROOM_RECONNECT: 'room:reconnect',
   ROOM_LIST: 'room:list',
+  ROOM_GET_STATE: 'room:getState',
   ROOM_SPECTATE: 'room:spectate',
   LOBBY_SUBSCRIBE: 'lobby:subscribe',
   LOBBY_UNSUBSCRIBE: 'lobby:unsubscribe',

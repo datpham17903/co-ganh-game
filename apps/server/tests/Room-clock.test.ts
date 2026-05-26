@@ -17,11 +17,21 @@ describe('Room — clock', () => {
     expect(r.clock.remainingMs.W).toBe(5000);
   });
 
-  it('clock turnStartedAt được set khi player thứ 2 join', () => {
+  it('clock turnStartedAt vẫn null khi player thứ 2 join — chỉ start khi B đi nước đầu', () => {
     const r = new Room('TEST01');
     r.addPlayer({ socketId: 's1', name: 'A', token: 't1' });
     expect(r.clock.turnStartedAt).toBeNull();
     r.addPlayer({ socketId: 's2', name: 'B', token: 't2' });
+    expect(r.clock.turnStartedAt).toBeNull();
+    expect(r.status).toBe('playing');
+  });
+
+  it('clock start khi B đi nước đầu tiên', () => {
+    const r = new Room('TEST01', { isPublic: false, initialClockMs: 60_000 });
+    r.addPlayer({ socketId: 's1', name: 'A', token: 't1' });
+    r.addPlayer({ socketId: 's2', name: 'B', token: 't2' });
+    expect(r.clock.turnStartedAt).toBeNull();
+    r.applyMoveBy('s1', { from: coord2index(1, 0), to: coord2index(1, 1) });
     expect(r.clock.turnStartedAt).not.toBeNull();
   });
 
@@ -29,9 +39,9 @@ describe('Room — clock', () => {
     const r = new Room('TEST01', { isPublic: false, initialClockMs: 60_000 });
     r.addPlayer({ socketId: 's1', name: 'A', token: 't1' });
     r.addPlayer({ socketId: 's2', name: 'B', token: 't2' });
-    const startedAt = r.clock.turnStartedAt!;
-    // Mock thời gian: B suy nghĩ 1s rồi đi
-    r.clock.turnStartedAt = startedAt - 1000;
+    // Đặt thủ công turnStartedAt như đã đi nước đầu cách đây 1s — để test
+    // logic trừ time của nước thứ 2 trở đi.
+    r.clock.turnStartedAt = Date.now() - 1000;
     const result = r.applyMoveBy('s1', { from: coord2index(1, 0), to: coord2index(1, 1) });
     expect(result.ok).toBe(true);
     // B đã dùng ~1s
@@ -73,7 +83,7 @@ describe('Room — clock', () => {
     expect(snap.W).toBe(60_000);
   });
 
-  it('reset: clock reset về initialClockMs + turnStartedAt set', () => {
+  it('reset: clock reset về initialClockMs + turnStartedAt null (chờ B đi nước đầu)', () => {
     const r = new Room('TEST01', { isPublic: false, initialClockMs: 30_000 });
     r.addPlayer({ socketId: 's1', name: 'A', token: 't1' });
     r.addPlayer({ socketId: 's2', name: 'B', token: 't2' });
@@ -81,7 +91,7 @@ describe('Room — clock', () => {
     r.reset();
     expect(r.clock.remainingMs.B).toBe(30_000);
     expect(r.clock.remainingMs.W).toBe(30_000);
-    expect(r.clock.turnStartedAt).not.toBeNull();
+    expect(r.clock.turnStartedAt).toBeNull();
   });
 
   it('resign: clock dừng (turnStartedAt = null)', () => {

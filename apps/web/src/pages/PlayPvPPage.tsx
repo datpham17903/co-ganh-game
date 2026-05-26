@@ -159,9 +159,30 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
       }
     };
     const init = async () => {
-      // Spectator mode: store đã được setup ở lobby; không cần reconnect.
+      // Spectator mode: fetch snapshot (state + tên player + clock) để render
+      // ngay vì server chỉ emit GAME_START khi player W join — spectator
+      // vào sau đó không nhận event này.
       if (isSpectatorMode) {
         reset({ mode: 'spectate' });
+        try {
+          const resp = await emit<{
+            ok: boolean;
+            state?: GameState;
+            players?: { B: { name: string } | null; W: { name: string } | null };
+          }>(s, SocketEvents.ROOM_GET_STATE, { roomId });
+          if (cancelled) return;
+          if (resp.ok && resp.state) {
+            setStateExternal(resp.state);
+            if (resp.players) {
+              setPlayerNames({
+                B: resp.players.B?.name ?? null,
+                W: resp.players.W?.name ?? null,
+              });
+            }
+          }
+        } catch {
+          /* ignore — sẽ tự sync qua GAME_SYNC_STATE / GAME_MOVE_APPLIED */
+        }
         return;
       }
       if (sessionRoomId === roomId && sessionToken) {

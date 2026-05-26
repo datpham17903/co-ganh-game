@@ -227,6 +227,27 @@ export function registerHandlers(io: Server, socket: Socket, rooms: RoomManager)
     socket.leave(LOBBY_ROOM);
   });
 
+  /**
+   * Lấy snapshot phòng đầy đủ — cho spectator nav vào PvP page (đã spectate
+   * trước đó từ lobby) hoặc player muốn refresh state. Không thay đổi state
+   * server, chỉ trả về current state + player names + clock.
+   */
+  socket.on(Events.ROOM_GET_STATE, (payload: { roomId: string }, cb?: Cb<unknown>) => {
+    const room = rooms.get(payload?.roomId ?? '');
+    if (!room) return cb?.({ ok: false, error: 'NOT_FOUND' });
+    cb?.({
+      ok: true,
+      state: room.state,
+      players: {
+        B: room.players.B ? { name: room.players.B.name } : null,
+        W: room.players.W ? { name: room.players.W.name } : null,
+      },
+      clock: room.clockSnapshot(),
+      roomName: room.name,
+      status: room.status,
+    });
+  });
+
   socket.on(Events.ROOM_LEAVE, () => {
     handleLeave(io, socket, rooms, true, broadcastLobby);
   });

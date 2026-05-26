@@ -149,7 +149,8 @@ export class Room {
       this.players.W = info;
       this.status = 'playing';
       this.lastActivityAt = Date.now();
-      this.clock.turnStartedAt = Date.now();
+      // Clock chỉ bắt đầu khi Đen đi nước đầu tiên (xem applyMoveBy).
+      this.clock.turnStartedAt = null;
       return 'W';
     }
     throw new Error('Room is full');
@@ -247,10 +248,14 @@ export class Room {
       const cur = this.state.turn;
       snap[cur] = Math.max(0, snap[cur] - used);
     }
+    // turn=null nếu clock chưa bắt đầu — client không countdown khi đang
+    // chờ Đen đi nước đầu tiên hay khi game đã kết thúc.
+    const turn =
+      this.status === 'playing' && this.clock.turnStartedAt !== null ? this.state.turn : null;
     return {
       B: snap.B,
       W: snap.W,
-      turn: this.status === 'playing' ? this.state.turn : null,
+      turn,
     };
   }
 
@@ -290,7 +295,8 @@ export class Room {
     this.lastActivityAt = Date.now();
     this.clock = {
       remainingMs: { B: this.initialClockMs, W: this.initialClockMs },
-      turnStartedAt: Date.now(),
+      // Chờ B đi nước đầu của ván mới mới start clock — consistent với init.
+      turnStartedAt: null,
     };
   }
 

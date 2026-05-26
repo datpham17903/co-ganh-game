@@ -6,6 +6,8 @@ export const Events = {
   ROOM_LEAVE: 'room:leave',
   ROOM_RECONNECT: 'room:reconnect',
   ROOM_LIST: 'room:list',
+  /** Lấy snapshot phòng (state + players + clock) — dùng cho spectator. */
+  ROOM_GET_STATE: 'room:getState',
   /** Subscribe vào lobby updates (giảm broadcast cho user không ở lobby). */
   LOBBY_SUBSCRIBE: 'lobby:subscribe',
   LOBBY_UNSUBSCRIBE: 'lobby:unsubscribe',

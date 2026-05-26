@@ -98,8 +98,9 @@ export class RoomManager {
   }
 
   /**
-   * Spectate: khán giả vào phòng public xem trận. Không cần password (để mọi
-   * người xem được). Không nhận được màu, không có token reconnect.
+   * Spectate: khán giả vào phòng xem trận. Cần biết roomId (mã phòng).
+   * Phòng private vẫn cho spectate khi có mã. Spectator không nhận màu,
+   * không có token reconnect, không cần password.
    */
   spectate(
     roomId: string,
@@ -107,10 +108,9 @@ export class RoomManager {
     name: string,
   ):
     | { ok: true; room: Room }
-    | { ok: false; error: 'NOT_FOUND' | 'NOT_PUBLIC' | 'SPECTATORS_FULL' | 'ALREADY_PLAYER' } {
+    | { ok: false; error: 'NOT_FOUND' | 'SPECTATORS_FULL' | 'ALREADY_PLAYER' } {
     const room = this.rooms.get(roomId);
     if (!room) return { ok: false, error: 'NOT_FOUND' };
-    if (!room.isPublic) return { ok: false, error: 'NOT_PUBLIC' };
     try {
       room.addSpectator(socketId, name);
       this.socketToRoom.set(socketId, roomId);

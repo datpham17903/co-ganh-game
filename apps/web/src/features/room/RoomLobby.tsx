@@ -188,11 +188,7 @@ export function RoomLobby() {
       });
       if (!resp.ok) {
         const errKey: TranslationKey =
-          resp.error === 'NOT_PUBLIC'
-            ? 'pvp.errNotPublic'
-            : resp.error === 'SPECTATORS_FULL'
-              ? 'pvp.errSpectatorsFull'
-              : 'pvp.errSpectate';
+          resp.error === 'SPECTATORS_FULL' ? 'pvp.errSpectatorsFull' : 'pvp.errSpectate';
         pushToast('error', t(errKey));
         return;
       }
@@ -221,11 +217,7 @@ export function RoomLobby() {
     void joinRoom(trimmed, pw);
   };
 
-  const onClickRoom = async (room: PublicRoomInfo) => {
-    if (room.status === 'playing') {
-      void spectateRoom(room.id);
-      return;
-    }
+  const onJoinPublicRoom = async (room: PublicRoomInfo) => {
     let pw: string | undefined;
     if (room.hasPassword) {
       const input = prompt(t('pvp.enterPw')) ?? '';
@@ -358,7 +350,8 @@ export function RoomLobby() {
           setSearch(v);
         }}
         setPage={setPage}
-        onClick={onClickRoom}
+        onJoin={onJoinPublicRoom}
+        onSpectate={(r) => spectateRoom(r.id)}
         t={t}
       />
     </div>
@@ -373,7 +366,8 @@ function PublicRoomList({
   search,
   setSearch,
   setPage,
-  onClick,
+  onJoin,
+  onSpectate,
   t,
 }: {
   rooms: PublicRoomInfo[];
@@ -383,7 +377,8 @@ function PublicRoomList({
   search: string;
   setSearch: (v: string) => void;
   setPage: (p: number) => void;
-  onClick: (r: PublicRoomInfo) => void;
+  onJoin: (r: PublicRoomInfo) => void;
+  onSpectate: (r: PublicRoomInfo) => void;
   t: ReturnType<typeof useT>;
 }) {
   return (
@@ -408,39 +403,57 @@ function PublicRoomList({
         <p className="text-sm text-text-muted">{t('pvp.noPublicRooms')}</p>
       ) : (
         <ul className="space-y-2">
-          {rooms.map((r) => (
-            <li key={r.id}>
-              <button
-                type="button"
-                onClick={() => onClick(r)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-text-muted bg-surface hover:border-accent transition-colors text-left"
-                data-testid={`public-room-${r.id}`}
-              >
-                <div className="flex flex-col gap-1 min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-num text-sm">{r.id}</span>
-                    {r.hasPassword && <span title={t('pvp.password')}>{t('pvp.locked')}</span>}
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded ${
-                        r.status === 'waiting'
-                          ? 'bg-accent-2/20 text-accent-2'
-                          : 'bg-text-muted/20 text-text-muted'
-                      }`}
-                    >
-                      {r.status === 'waiting' ? t('pvp.statusWaiting') : t('pvp.statusPlaying')}
+          {rooms.map((r) => {
+            const canJoin = r.status === 'waiting' && r.playerCount < 2;
+            return (
+              <li key={r.id}>
+                <div
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-text-muted bg-surface"
+                  data-testid={`public-room-${r.id}`}
+                >
+                  <div className="flex flex-col gap-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-num text-sm">{r.id}</span>
+                      {r.hasPassword && <span title={t('pvp.password')}>{t('pvp.locked')}</span>}
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded ${
+                          r.status === 'waiting'
+                            ? 'bg-accent-2/20 text-accent-2'
+                            : 'bg-text-muted/20 text-text-muted'
+                        }`}
+                      >
+                        {r.status === 'waiting' ? t('pvp.statusWaiting') : t('pvp.statusPlaying')}
+                      </span>
+                    </div>
+                    {r.name && <span className="text-sm font-medium truncate">{r.name}</span>}
+                    <span className="text-xs text-text-muted truncate">
+                      {r.hostName} · 👥 {r.spectatorCount}
                     </span>
                   </div>
-                  {r.name && <span className="text-sm font-medium truncate">{r.name}</span>}
-                  <span className="text-xs text-text-muted truncate">
-                    {r.hostName} · 👥 {r.spectatorCount}
-                  </span>
+                  <div className="flex flex-col gap-1 shrink-0">
+                    {canJoin && (
+                      <button
+                        type="button"
+                        onClick={() => onJoin(r)}
+                        className="px-3 py-1 text-xs rounded bg-accent text-white hover:opacity-90"
+                        data-testid={`btn-join-${r.id}`}
+                      >
+                        {t('pvp.join')}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => onSpectate(r)}
+                      className="px-3 py-1 text-xs rounded border border-accent-2 text-accent-2 hover:bg-accent-2/10"
+                      data-testid={`btn-spectate-${r.id}`}
+                    >
+                      {t('pvp.spectate')}
+                    </button>
+                  </div>
                 </div>
-                {r.status === 'playing' && (
-                  <span className="ml-2 text-xs text-accent-2 shrink-0">{t('pvp.spectate')}</span>
-                )}
-              </button>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
       {totalPages > 1 && (
