@@ -217,6 +217,15 @@ export function RoomLobby() {
     void joinRoom(trimmed, pw);
   };
 
+  const onSpectateByCode = async () => {
+    const trimmed = code.trim().toUpperCase();
+    if (trimmed.length !== 6) {
+      pushToast('warning', t('pvp.errCodeLen'));
+      return;
+    }
+    void spectateRoom(trimmed);
+  };
+
   const onJoinPublicRoom = async (room: PublicRoomInfo) => {
     let pw: string | undefined;
     if (room.hasPassword) {
@@ -332,6 +341,15 @@ export function RoomLobby() {
               data-testid="btn-join-room"
             >
               {t('pvp.join')}
+            </button>
+            <button
+              type="button"
+              onClick={onSpectateByCode}
+              disabled={busy || code.length !== 6}
+              className="px-4 py-2 rounded border border-accent-2 text-accent-2 disabled:opacity-50"
+              data-testid="btn-spectate-code"
+            >
+              {t('pvp.spectate')}
             </button>
           </div>
         </div>
