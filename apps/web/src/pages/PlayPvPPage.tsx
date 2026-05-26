@@ -318,25 +318,26 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
       : (opponentName ?? t('common.opponent'));
 
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 py-3">
-      <div className="w-full max-w-2xl flex items-center justify-between">
-        <Link to="/" className="text-sm underline">
+    <div className="min-h-screen flex flex-col items-center px-2 sm:px-4 py-3">
+      <div className="w-full max-w-2xl flex items-center justify-between gap-2">
+        <Link to="/" className="text-sm underline shrink-0">
           {t('common.back')}
         </Link>
         <button
           type="button"
           onClick={copyCode}
-          className="font-num text-lg"
+          className="font-num text-sm sm:text-lg truncate min-w-0"
           data-testid="room-code-display"
         >
-          {t('pvp.codePrefix')}: {roomId}
+          <span className="hidden sm:inline">{t('pvp.codePrefix')}: </span>
+          {roomId}
         </button>
         {isSpectator ? (
-          <button type="button" onClick={leaveRoom} className="text-sm underline">
+          <button type="button" onClick={leaveRoom} className="text-sm underline shrink-0">
             {t('common.leaveRoom')}
           </button>
         ) : !opponentName || over ? (
-          <button type="button" onClick={leaveRoom} className="text-sm underline">
+          <button type="button" onClick={leaveRoom} className="text-sm underline shrink-0">
             {t('common.leaveRoom')}
           </button>
         ) : (
@@ -345,7 +346,7 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
             onClick={() => {
               void resign();
             }}
-            className="text-sm underline"
+            className="text-sm underline shrink-0"
             data-testid="btn-forfeit"
           >
             {t('common.forfeit')}
@@ -368,7 +369,7 @@ function PvPGameRoom({ roomId }: { roomId: string }) {
         </div>
       )}
 
-      <div className="w-full max-w-2xl flex items-center justify-between mt-3 mb-3">
+      <div className="w-full max-w-2xl flex items-center justify-between gap-2 mt-3 mb-3">
         <PlayerBadge
           color="B"
           count={blackPieces}
@@ -505,20 +506,24 @@ function PlayerBadge({
   clock: ClockState | null;
   t: ReturnType<typeof useT>;
 }) {
+  const displayName = isMe ? t('common.you') : name;
   return (
     <div
-      className={`px-3 py-2 rounded-md border ${active ? 'border-accent bg-surface' : 'border-text-muted'}`}
+      className={`flex-1 min-w-0 px-2 py-1.5 sm:px-3 sm:py-2 rounded-md border ${active ? 'border-accent bg-surface' : 'border-text-muted'}`}
       data-testid={`badge-${color}`}
     >
-      <span className="text-sm">{isMe ? t('common.you') : name}</span>
-      <span className="ml-2 text-xs text-text-muted">
-        ({color === 'B' ? t('common.black') : t('common.white')})
-      </span>
-      <span className="ml-2 font-num">{count}</span>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span
+          className={`shrink-0 w-2 h-2 rounded-full ${color === 'B' ? 'bg-text-primary' : 'bg-white border border-text-muted'}`}
+          aria-label={color === 'B' ? t('common.black') : t('common.white')}
+        />
+        <span className="text-sm truncate min-w-0 flex-1">{displayName}</span>
+        <span className="shrink-0 font-num text-sm">{count}</span>
+      </div>
       {clock && (
-        <span className="ml-2">
+        <div className="mt-0.5">
           <ClockDisplay clock={clock} forColor={color} active={active} />
-        </span>
+        </div>
       )}
     </div>
   );

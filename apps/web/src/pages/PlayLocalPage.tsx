@@ -28,22 +28,22 @@ export function PlayLocalPage() {
   const winner = getWinner(state);
 
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 py-3">
-      <div className="w-full max-w-2xl flex items-center justify-between">
-        <Link to="/" className="text-sm underline">
+    <div className="min-h-screen flex flex-col items-center px-2 sm:px-4 py-3">
+      <div className="w-full max-w-2xl flex items-center justify-between gap-2">
+        <Link to="/" className="text-sm underline shrink-0">
           {t('common.back')}
         </Link>
-        <h1 className="font-display text-xl">{t('local.title')}</h1>
+        <h1 className="font-display text-base sm:text-xl truncate">{t('local.title')}</h1>
         <button
           type="button"
           onClick={() => reset({ mode: 'local' })}
-          className="text-sm underline"
+          className="text-sm underline shrink-0"
         >
           {t('common.replay')}
         </button>
       </div>
 
-      <div className="w-full max-w-2xl flex items-center justify-between mt-3 mb-3">
+      <div className="w-full max-w-2xl flex items-center justify-between gap-2 mt-3 mb-3">
         <PlayerBadge color="B" count={blackPieces} active={state.turn === 'B' && !over} t={t} />
         <PlayerBadge color="W" count={whitePieces} active={state.turn === 'W' && !over} t={t} />
       </div>
@@ -122,12 +122,20 @@ function PlayerBadge({
 }) {
   return (
     <div
-      className={`px-3 py-2 rounded-md border ${active ? 'border-accent bg-surface' : 'border-text-muted'}`}
+      className={`flex-1 min-w-0 px-2 py-1.5 sm:px-3 sm:py-2 rounded-md border ${active ? 'border-accent bg-surface' : 'border-text-muted'}`}
       data-testid={`badge-${color}`}
     >
-      <span className="text-sm">{color === 'B' ? t('common.black') : t('common.white')}</span>
-      <span className="ml-2 font-num">{count}</span>
-      {active && <span className="ml-2 text-accent">▶</span>}
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span
+          className={`shrink-0 w-2 h-2 rounded-full ${color === 'B' ? 'bg-text-primary' : 'bg-white border border-text-muted'}`}
+          aria-label={color === 'B' ? t('common.black') : t('common.white')}
+        />
+        <span className="text-sm truncate min-w-0 flex-1">
+          {color === 'B' ? t('common.black') : t('common.white')}
+        </span>
+        <span className="shrink-0 font-num text-sm">{count}</span>
+        {active && <span className="shrink-0 text-accent">▶</span>}
+      </div>
     </div>
   );
 }

@@ -238,13 +238,13 @@ export function RoomLobby() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 py-3">
-      <div className="w-full max-w-2xl flex items-center justify-between">
-        <Link to="/" className="text-sm underline">
+    <div className="min-h-screen flex flex-col items-center px-3 sm:px-4 py-3">
+      <div className="w-full max-w-2xl flex items-center justify-between gap-2">
+        <Link to="/" className="text-sm underline shrink-0">
           {t('common.backHome')}
         </Link>
-        <h1 className="font-display text-xl">{t('pvp.title')}</h1>
-        <span />
+        <h1 className="font-display text-lg sm:text-xl truncate">{t('pvp.title')}</h1>
+        <span className="shrink-0" />
       </div>
 
       <div className="w-full max-w-md mt-6 space-y-5">
@@ -322,17 +322,17 @@ export function RoomLobby() {
           <label htmlFor="room-code" className="block text-sm mb-1">
             {t('pvp.roomCode')}
           </label>
-          <div className="flex gap-2">
-            <input
-              id="room-code"
-              type="text"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 6))}
-              placeholder="ABC234"
-              className="flex-1 px-3 py-2 border border-text-muted rounded bg-surface font-num uppercase"
-              data-testid="input-room-code"
-            />
+          <input
+            id="room-code"
+            type="text"
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 6))}
+            placeholder="ABC234"
+            className="w-full px-3 py-2 border border-text-muted rounded bg-surface font-num uppercase"
+            data-testid="input-room-code"
+          />
+          <div className="grid grid-cols-2 gap-2 mt-2">
             <button
               type="button"
               onClick={onJoinByCode}

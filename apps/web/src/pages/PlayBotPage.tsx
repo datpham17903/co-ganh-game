@@ -147,20 +147,20 @@ function ActiveBotGame({
         : t('difficulty.hard');
 
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 py-3">
-      <div className="w-full max-w-2xl flex items-center justify-between">
-        <Link to="/" className="text-sm underline">
+    <div className="min-h-screen flex flex-col items-center px-2 sm:px-4 py-3">
+      <div className="w-full max-w-2xl flex items-center justify-between gap-2">
+        <Link to="/" className="text-sm underline shrink-0">
           {t('common.back')}
         </Link>
-        <h1 className="font-display text-xl">
+        <h1 className="font-display text-sm sm:text-xl truncate min-w-0">
           {t('bot.title')} ({diffLabel})
         </h1>
-        <button type="button" onClick={onChangeSetup} className="text-sm underline">
+        <button type="button" onClick={onChangeSetup} className="text-sm underline shrink-0">
           {t('common.changeSetup')}
         </button>
       </div>
 
-      <div className="w-full max-w-2xl flex items-center justify-between mt-3 mb-3">
+      <div className="w-full max-w-2xl flex items-center justify-between gap-2 mt-3 mb-3">
         <PlayerBadge
           color="B"
           count={blackPieces}
@@ -261,15 +261,22 @@ function PlayerBadge({
 }) {
   return (
     <div
-      className={`px-3 py-2 rounded-md border ${active ? 'border-accent bg-surface' : 'border-text-muted'}`}
+      className={`flex-1 min-w-0 px-2 py-1.5 sm:px-3 sm:py-2 rounded-md border ${active ? 'border-accent bg-surface' : 'border-text-muted'}`}
       data-testid={`badge-${color}`}
     >
-      <span className="text-sm">{isMe ? t('common.you') : t('common.bot')}</span>
-      <span className="ml-2 text-xs text-text-muted">
-        ({color === 'B' ? t('common.black') : t('common.white')})
-      </span>
-      <span className="ml-2 font-num">{count}</span>
-      {thinking && <span className="ml-2 text-accent animate-pulse">{t('bot.thinking')}</span>}
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span
+          className={`shrink-0 w-2 h-2 rounded-full ${color === 'B' ? 'bg-text-primary' : 'bg-white border border-text-muted'}`}
+          aria-label={color === 'B' ? t('common.black') : t('common.white')}
+        />
+        <span className="text-sm truncate min-w-0 flex-1">
+          {isMe ? t('common.you') : t('common.bot')}
+        </span>
+        <span className="shrink-0 font-num text-sm">{count}</span>
+      </div>
+      {thinking && (
+        <div className="mt-0.5 text-xs text-accent animate-pulse">{t('bot.thinking')}</div>
+      )}
     </div>
   );
 }
